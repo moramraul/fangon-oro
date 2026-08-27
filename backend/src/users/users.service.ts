@@ -42,4 +42,7 @@ export class UsersService {
       .select('+passwordHash')
       .exec();
   }
+  async findById(id: string) {
+    return this.userModel.findById(id).exec();
+  }
 }
