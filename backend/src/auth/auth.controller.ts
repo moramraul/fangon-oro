@@ -3,6 +3,7 @@ import { Request } from 'express';
 
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RolesGuard } from './guards/roles.guard';
 import { LoginDto } from './dto/login.dto';
 import { registerDto } from './dto/register.dto';
 
@@ -21,7 +22,7 @@ export class AuthController {
   }
 
   @Get('me')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   getMe(@Req() request: Request) {
     return request.user;
   }
