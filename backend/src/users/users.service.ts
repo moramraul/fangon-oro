@@ -1,7 +1,7 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import * as bcrypt from 'bcrypt';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 
 import { registerDto } from '../auth/dto/register.dto';
 import { User, UserDocument } from './schemas/user.schema';
@@ -34,7 +34,26 @@ export class UsersService {
   }
 
   async findAll() {
-    return this.userModel.find().exec();
+    const users = await this.userModel
+      .find()
+      .select('_id name')
+      .sort({ name: 1 })
+      .exec();
+    return users.map((user) => ({
+      id: user._id.toHexString(),
+      name: user.name,
+    }));
+  }
+  async findSummariesByIds(ids: Types.ObjectId[]) {
+    const users = await this.userModel
+      .find({ _id: { $in: ids } })
+      .select('_id name')
+      .sort({ name: 1 })
+      .exec();
+    return users.map((user) => ({
+      id: user._id.toHexString(),
+      name: user.name,
+    }));
   }
   async findByEmailWithPassword(email: string) {
     return this.userModel

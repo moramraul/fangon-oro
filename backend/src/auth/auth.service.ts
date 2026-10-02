@@ -24,13 +24,13 @@ export class AuthService {
       loginDto.email,
     );
 
-    if (!user) {
+    if (!user?.passwordHash) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
     const passwordValid = await bcrypt.compare(
       loginDto.password,
-      user.passwordHash!,
+      user.passwordHash,
     );
 
     if (!passwordValid) {
