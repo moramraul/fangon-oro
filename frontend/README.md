@@ -1,48 +1,42 @@
-# frontend
+﻿# Fangón de Oro · Frontend
 
-This template should help get you started developing with Vue 3 in Vite.
+MVP móvil en Vue 3: registro, login y perfil conectado al backend NestJS.
 
-## Recommended IDE Setup
+## Desarrollo
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
-
-## Recommended Browser Setup
-
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
-
-## Type Support for `.vue` Imports in TS
-
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
+Con el backend y MongoDB arrancados, ejecutar desde `frontend`:
 
 ```sh
 npm install
-```
-
-### Compile and Hot-Reload for Development
-
-```sh
 npm run dev
 ```
 
-### Type-Check, Compile and Minify for Production
+Desde un móvil conectado a la misma red, abrir la dirección de red indicada por Vite.
+
+`/api` se reenvía al backend en `http://localhost:3000`. Para cambiarlo, copiar `.env.example` a `.env` y ajustar `API_PROXY_TARGET`.
+
+## Pantallas
+
+La interfaz se organiza en `src/views` (login, registro y perfil),
+`src/components` (layout, acceso y tarjeta de miembro), `src/stores/auth.ts`
+(autenticación y sesión con Pinia) y `src/composables/useHashRoute.ts`
+(navegación por hash). `App.vue` compone el layout y selecciona la pantalla.
+Los formularios mantienen sus campos localmente y envían los datos al store;
+los estilos visuales compartidos siguen en `src/style.css`.
+
+- `#/login`: correo y contraseña.
+- `#/register`: nombre, correo y contraseña de 8 a 100 caracteres.
+- `#/profile`: datos reales de `GET /auth/me`; se abre tras registro y login.
+
+El JWT se conserva en localStorage. Al recargar se valida con el backend. Una sesión caducada vuelve al login; un fallo de red permite reintentar. Cerrar sesión elimina el token local. Eventos y votaciones quedan para la siguiente iteración.
+
+## Verificación y producción
 
 ```sh
 npm run build
-```
-
-### Lint with [ESLint](https://eslint.org/)
-
-```sh
 npm run lint
 ```
+
+El build genera `dist`. En producción, reenviar `/api` al backend desde el servidor del alojamiento, o configurar `VITE_API_URL` antes del build y permitir el origen del frontend mediante CORS en el backend. El proxy de Vite solo funciona en desarrollo.
+
+El trofeo proporcionado está en `public/images/trofeo-fangon.png`. Las fuentes se cargan desde Google Fonts con alternativas locales.
