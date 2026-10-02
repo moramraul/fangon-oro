@@ -16,14 +16,16 @@ describe('EventsService permissions and state rules', () => {
   const event = {
     _id: eventId,
     name: 'Albacete',
-    date: new Date('2026-10-01T12:00:00Z'),
-    status: EventStatus.DRAFT,
+    startDate: new Date('2099-10-01T12:00:00Z'),
+    endDate: new Date('2099-10-02T12:00:00Z'),
+    status: EventStatus.OPEN,
     createdBy: new Types.ObjectId(),
     participants: [userId],
     createdAt: new Date(),
     updatedAt: new Date(),
   };
   const model = {
+    updateMany: jest.fn(),
     findById: jest.fn(),
     findOneAndUpdate: jest.fn(),
     create: jest.fn(),
@@ -34,6 +36,7 @@ describe('EventsService permissions and state rules', () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
+    model.updateMany.mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
     model.findById.mockReturnValue({
       exec: jest.fn().mockResolvedValue(event),
     });
@@ -79,7 +82,8 @@ describe('EventsService permissions and state rules', () => {
       service.create(
         {
           name: 'Test',
-          date: '2026-10-01T12:00:00Z',
+          startDate: '2099-10-01T12:00:00Z',
+          endDate: '2099-10-02T12:00:00Z',
           participantIds: [userId.toHexString()],
         },
         user,
@@ -98,7 +102,7 @@ describe('EventsService permissions and state rules', () => {
     expect(model.findOneAndUpdate).not.toHaveBeenCalled();
   });
 
-  it('requires DRAFT atomically when editing participants', async () => {
+  it('requires a future start atomically when editing participants', async () => {
     users.findSummariesByIds.mockResolvedValue([]);
     model.findOneAndUpdate.mockReturnValue({
       exec: jest.fn().mockResolvedValue(null),
@@ -109,28 +113,47 @@ describe('EventsService permissions and state rules', () => {
     expect(model.findOneAndUpdate).toHaveBeenCalledWith(
       {
         _id: eventId.toHexString(),
-        status: EventStatus.DRAFT,
+        status: EventStatus.OPEN,
+        startDate: { $gt: expect.any(Date) as Date },
       },
       expect.anything(),
       expect.anything(),
     );
   });
 
-  it('requires a participant and DRAFT atomically when opening', async () => {
-    model.findOneAndUpdate.mockReturnValue({
-      exec: jest.fn().mockResolvedValue(null),
+  it('does not reopen closed events', async () => {
+    model.findById.mockReturnValue({
+      exec: jest
+        .fn()
+        .mockResolvedValue({ ...event, status: EventStatus.CLOSED }),
     });
     await expect(
       service.setStatus(eventId.toHexString(), EventStatus.OPEN),
     ).rejects.toBeInstanceOf(ConflictException);
-    expect(model.findOneAndUpdate).toHaveBeenCalledWith(
-      {
-        _id: eventId.toHexString(),
-        status: EventStatus.DRAFT,
-        'participants.0': { $exists: true },
-      },
-      expect.anything(),
-      expect.anything(),
+  });
+  it('rejects an end date before the start', async () => {
+    await expect(
+      service.update(eventId.toHexString(), {
+        endDate: '2099-09-01T12:00:00Z',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+  it('closes expired open events', async () => {
+    await service.closeExpired();
+    expect(model.updateMany).toHaveBeenCalledWith(
+      { status: EventStatus.OPEN, endDate: { $lte: expect.any(Date) as Date } },
+      { $set: { status: EventStatus.CLOSED } },
     );
+  });
+  it('allows manual closure', async () => {
+    model.findOneAndUpdate.mockReturnValue({
+      exec: jest
+        .fn()
+        .mockResolvedValue({ ...event, status: EventStatus.CLOSED }),
+    });
+    expect(
+      (await service.setStatus(eventId.toHexString(), EventStatus.CLOSED))
+        .status,
+    ).toBe(EventStatus.CLOSED);
   });
 });

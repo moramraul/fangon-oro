@@ -11,3 +11,5 @@
     </div>
   </section>
 </template>
+
+<style scoped src="../../styles/auth-hero.css"></style>

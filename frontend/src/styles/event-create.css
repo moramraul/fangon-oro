@@ -1,0 +1,141 @@
+.event-create {
+  padding: 28px 24px 16px;
+}
+.back-link {
+  display: inline-block;
+  color: var(--gold);
+  font-size: 12px;
+  text-decoration: none;
+  margin-bottom: 28px;
+}
+.eyebrow {
+  font-size: 9px;
+  letter-spacing: 2px;
+  font-weight: 600;
+  color: var(--gold);
+}
+.event-heading p,
+.hint {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.event-heading {
+  margin-bottom: 28px;
+}
+.form-fields {
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+.field {
+  margin-bottom: 20px;
+}
+.field > label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.field input,
+.field select {
+  width: 100%;
+  min-height: 51px;
+  border: 1px solid #3b392f;
+  border-radius: 8px;
+  background: #1c1c18;
+  color: #f2eee5;
+  padding: 12px;
+  font: inherit;
+  font-size: 16px;
+}
+.field input::placeholder {
+  color: #858378;
+  font-size: 13px;
+}
+.field select:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+.participants {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  list-style: none;
+}
+.participants li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-left: 12px;
+  border: 1px solid #d9b66540;
+  border-radius: 8px;
+  font-size: 13px;
+}
+.participants span {
+  overflow-wrap: anywhere;
+}
+.participants button {
+  flex-shrink: 0;
+  min-width: 44px;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--gold);
+  font-size: 22px;
+}
+.primary {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 24px;
+  border: 1px solid #f2d28b;
+  border-radius: 8px;
+  background: linear-gradient(115deg, #e9cb83, #c9a455);
+  color: #242016;
+  font-size: 14px;
+  font-weight: 700;
+}
+.primary:hover {
+  filter: brightness(1.07);
+}
+.error {
+  padding: 12px 14px;
+  border: 1px solid #ab5c4b;
+  border-radius: 6px;
+  color: #f4b9a7;
+  background: #ab5c4b15;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.retry {
+  display: block;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--gold);
+  text-decoration: underline;
+}
+.success {
+  padding: 20px;
+  border: 1px solid #d9b66560;
+  border-radius: 12px;
+  background: #d9b6650b;
+}
+.success h2 {
+  color: var(--gold);
+  font-size: 20px;
+  margin-top: 0;
+}
+.success p {
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 350px) {
+  .event-create {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+}

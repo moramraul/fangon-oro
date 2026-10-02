@@ -23,14 +23,25 @@ describe('VotesService', () => {
     createdAt: new Date(),
   };
   const session = {} as ClientSession;
-  const votes = { create: jest.fn(), findOne: jest.fn(), aggregate: jest.fn() };
-  const events = { findOneAndUpdate: jest.fn() };
+  const votes = {
+    create: jest.fn(),
+    findOne: jest.fn(),
+    aggregate: jest.fn(),
+    countDocuments: jest.fn(),
+  };
+  const events = { findOneAndUpdate: jest.fn(), updateOne: jest.fn() };
   const details = { getDetail: jest.fn() };
   const connection = { transaction: jest.fn() };
   let service: VotesService;
 
   beforeEach(() => {
     jest.resetAllMocks();
+    votes.countDocuments.mockReturnValue({
+      session: jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue(1) }),
+    });
+    events.updateOne.mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
     details.getDetail.mockResolvedValue({
       id: eventId.toHexString(),
       status: EventStatus.OPEN,
@@ -45,7 +56,10 @@ describe('VotesService', () => {
         callback(session),
     );
     events.findOneAndUpdate.mockReturnValue({
-      exec: jest.fn().mockResolvedValue({ _id: eventId }),
+      exec: jest.fn().mockResolvedValue({
+        _id: eventId,
+        participants: [voterId, candidateId],
+      }),
     });
     votes.create.mockResolvedValue([vote]);
     service = new VotesService(
@@ -107,6 +121,8 @@ describe('VotesService', () => {
       {
         _id: eventId.toHexString(),
         status: EventStatus.OPEN,
+        startDate: { $lte: expect.any(Date) as Date },
+        endDate: { $gt: expect.any(Date) as Date },
         participants: { $all: [voterId, candidateId] },
       },
       { $inc: { votingRevision: 1 } },
@@ -119,6 +135,19 @@ describe('VotesService', () => {
     expect(result).not.toHaveProperty('voterId');
   });
 
+  it('closes after the last vote', async () => {
+    votes.countDocuments.mockReturnValue({
+      session: jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue(2) }),
+    });
+    await service.cast(eventId.toHexString(), candidateId.toHexString(), user);
+    expect(events.updateOne).toHaveBeenCalledWith(
+      { _id: eventId, status: EventStatus.OPEN },
+      { $set: { status: EventStatus.CLOSED } },
+      { session },
+    );
+  });
   it('does not insert a vote when the event has closed', async () => {
     events.findOneAndUpdate.mockReturnValue({
       exec: jest.fn().mockResolvedValue(null),

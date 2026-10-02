@@ -55,6 +55,8 @@ export class VotesService implements OnModuleInit {
             {
               _id: eventId,
               status: EventStatus.OPEN,
+              startDate: { $lte: new Date() },
+              endDate: { $gt: new Date() },
               participants: { $all: [user._id, candidateId] },
             },
             { $inc: { votingRevision: 1 } },
@@ -66,6 +68,22 @@ export class VotesService implements OnModuleInit {
           [{ eventId: event._id, voterId: user._id, votedUserId: candidateId }],
           { session },
         );
+        const totalVotes = await this.voteModel
+          .countDocuments({
+            eventId: event._id,
+            voterId: { $in: event.participants },
+          })
+          .session(session)
+          .exec();
+        if (totalVotes === event.participants.length) {
+          await this.eventModel
+            .updateOne(
+              { _id: event._id, status: EventStatus.OPEN },
+              { $set: { status: EventStatus.CLOSED } },
+              { session },
+            )
+            .exec();
+        }
         return this.response(vote);
       });
     } catch (error: unknown) {

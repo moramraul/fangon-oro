@@ -27,7 +27,16 @@ export class UpdateEventDto {
   @ValidateIf((_object: unknown, value: unknown) => value !== undefined)
   @IsISO8601({ strict: true })
   @Matches(/T.*(?:Z|[+-]\d{2}:\d{2})$/)
-  date?: string;
+  startDate?: string;
+
+  @ValidateIf((_object: unknown, value: unknown) => value !== undefined)
+  @IsISO8601({ strict: true })
+  @Matches(/T.*(?:Z|[+-]\d{2}:\d{2})$/)
+  endDate?: string;
+
+  @ValidateIf((_object: unknown, value: unknown) => value !== undefined)
+  @IsEnum(EventStatus)
+  status?: EventStatus;
 
   @ValidateIf((_object: unknown, value: unknown) => value !== undefined)
   @Transform(trimString)
@@ -45,7 +54,15 @@ export class CreateEventDto {
 
   @IsISO8601({ strict: true })
   @Matches(/T.*(?:Z|[+-]\d{2}:\d{2})$/)
-  date!: string;
+  startDate!: string;
+
+  @IsISO8601({ strict: true })
+  @Matches(/T.*(?:Z|[+-]\d{2}:\d{2})$/)
+  endDate!: string;
+
+  @ValidateIf((_object: unknown, value: unknown) => value !== undefined)
+  @IsEnum(EventStatus)
+  status?: EventStatus;
 
   @ValidateIf((_object: unknown, value: unknown) => value !== undefined)
   @Transform(trimString)

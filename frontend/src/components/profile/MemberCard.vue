@@ -25,3 +25,5 @@ const initials = computed(() =>
     <div class="card-bottom"><span>FANGÓN DE ORO</span><span aria-hidden="true">✦</span></div>
   </div>
 </template>
+
+<style scoped src="../../styles/member-card.css"></style>

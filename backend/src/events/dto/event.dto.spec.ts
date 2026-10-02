@@ -10,11 +10,37 @@ describe('Event input validation', () => {
   const validateCreate = (body: unknown) =>
     pipe.transform(body, { type: 'body', metatype: CreateEventDto });
 
+  it.each(['open', 'closed'])(
+    'accepts %s status with both dates',
+    async (status) => {
+      await expect(
+        validateCreate({
+          name: 'Test',
+          startDate: '2026-10-01T12:00:00Z',
+          endDate: '2026-10-02T12:00:00Z',
+          status,
+        }),
+      ).resolves.toMatchObject({ status });
+    },
+  );
+
+  it('rejects draft status', async () => {
+    await expect(
+      validateCreate({
+        name: 'Test',
+        startDate: '2026-10-01T12:00:00Z',
+        endDate: '2026-10-02T12:00:00Z',
+        status: 'DRAFT',
+      }),
+    ).rejects.toThrow();
+  });
+
   it('rejects client supplied ownership', async () => {
     await expect(
       validateCreate({
         name: 'Test',
-        date: '2026-10-01T12:00:00Z',
+        startDate: '2026-10-01T12:00:00Z',
+        endDate: '2026-10-02T12:00:00Z',
         createdBy: 'someone',
       }),
     ).rejects.toThrow();
@@ -22,7 +48,11 @@ describe('Event input validation', () => {
 
   it('rejects dates without a time zone', async () => {
     await expect(
-      validateCreate({ name: 'Test', date: '2026-10-01T12:00:00' }),
+      validateCreate({
+        name: 'Test',
+        startDate: '2026-10-01T12:00:00',
+        endDate: '2026-10-02T12:00:00Z',
+      }),
     ).rejects.toThrow();
   });
 
@@ -39,7 +69,8 @@ describe('Event input validation', () => {
     await expect(
       validateCreate({
         name: 'Test',
-        date: '2026-10-01T12:00:00Z',
+        startDate: '2026-10-01T12:00:00Z',
+        endDate: '2026-10-02T12:00:00Z',
         participantIds: null,
       }),
     ).rejects.toThrow();

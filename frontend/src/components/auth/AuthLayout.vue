@@ -45,3 +45,5 @@ const registering = computed(() => props.mode === 'register')
     </p>
   </section>
 </template>
+
+<style scoped src="../../styles/auth-layout.css"></style>

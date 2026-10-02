@@ -3,9 +3,8 @@ import { HydratedDocument, Schema as MongoSchema, Types } from 'mongoose';
 import { User } from '../../users/schemas/user.schema';
 
 export enum EventStatus {
-  DRAFT = 'DRAFT',
-  OPEN = 'OPEN',
-  CLOSED = 'CLOSED',
+  OPEN = 'open',
+  CLOSED = 'closed',
 }
 
 export type EventDocument = HydratedDocument<Event>;
@@ -16,12 +15,15 @@ export class Event {
   name!: string;
 
   @Prop({ required: true })
-  date!: Date;
+  startDate!: Date;
+
+  @Prop({ required: true })
+  endDate!: Date;
 
   @Prop({ maxlength: 2000 })
   description?: string;
 
-  @Prop({ required: true, enum: EventStatus, default: EventStatus.DRAFT })
+  @Prop({ required: true, enum: EventStatus, default: EventStatus.OPEN })
   status!: EventStatus;
 
   @Prop({ type: MongoSchema.Types.ObjectId, ref: User.name, required: true })
@@ -42,4 +44,6 @@ export class Event {
 }
 
 export const EventSchema = SchemaFactory.createForClass(Event);
-EventSchema.index({ participants: 1, date: -1 });
+EventSchema.index({ participants: 1, startDate: -1 });
+
+EventSchema.index({ status: 1, endDate: 1 });

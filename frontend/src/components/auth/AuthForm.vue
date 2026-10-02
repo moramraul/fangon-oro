@@ -88,3 +88,5 @@ function submit() {
     </button>
   </form>
 </template>
+
+<style scoped src="../../styles/auth-form.css"></style>

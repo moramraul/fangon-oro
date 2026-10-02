@@ -1,0 +1,89 @@
+.member-card {
+  position: relative;
+  overflow: hidden;
+  margin-top: 30px;
+  padding: 22px;
+  border: 1px solid #8c713b;
+  border-radius: 14px;
+  background:
+    radial-gradient(ellipse at top right, #66512660, transparent 65%),
+    linear-gradient(130deg, #28271f, #171713);
+  box-shadow: 0 18px 40px #0003;
+}
+
+.member-card:after {
+  content: '✦';
+  position: absolute;
+  right: -20px;
+  top: 58px;
+  font-size: 230px;
+  line-height: 1;
+  color: #d9b66507;
+  pointer-events: none;
+}
+
+.card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.member-badge {
+  font-size: 10px;
+  color: #e4c888;
+  border: 1px solid #b8995355;
+  padding: 5px 9px;
+  border-radius: 20px;
+}
+
+.avatar {
+  width: 68px;
+  height: 68px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid #d9b66566;
+  background: #d9b66515;
+  color: #e7c87e;
+  font-family: Georgia, serif;
+  font-size: 24px;
+  margin: 28px 0 17px;
+}
+
+.member-card h2 {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 500;
+  font-size: 27px;
+  overflow-wrap: anywhere;
+  margin: 0 0 8px;
+}
+
+.member-email {
+  font-size: 13px;
+  color: #b8b4a7;
+  overflow-wrap: anywhere;
+  margin: 0;
+}
+
+.card-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid #d9b66530;
+  padding-top: 17px;
+  margin-top: 28px;
+  color: var(--gold);
+  font-size: 9px;
+  letter-spacing: 2px;
+}
+
+.card-bottom > span:last-child {
+  font-size: 22px;
+}
+
+.eyebrow {
+  font-size: 9px;
+  letter-spacing: 2px;
+  font-weight: 600;
+  color: var(--gold);
+}

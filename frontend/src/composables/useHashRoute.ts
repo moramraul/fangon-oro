@@ -1,6 +1,7 @@
 import { onMounted, onUnmounted, ref } from 'vue'
-type Route = 'login' | 'register' | 'profile'
+type Route = 'login' | 'register' | 'profile' | 'manage-events'
 function readRoute(): Route {
+  if (location.hash === '#/events/manage') return 'manage-events'
   if (location.hash === '#/register') return 'register'
   if (location.hash === '#/profile') return 'profile'
   return 'login'

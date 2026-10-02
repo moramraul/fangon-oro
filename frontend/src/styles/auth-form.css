@@ -1,0 +1,87 @@
+.field {
+  margin-bottom: 17px;
+}
+
+.field label {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.field input {
+  width: 100%;
+  min-height: 51px;
+  border: 1px solid #3b392f;
+  border-radius: 8px;
+  background: #1c1c18;
+  color: #f2eee5;
+  padding: 14px;
+  font-size: 16px;
+}
+
+.field input::placeholder {
+  color: #858378;
+  font-size: 13px;
+}
+
+.password-field {
+  position: relative;
+}
+
+.password-field input {
+  padding-right: 52px;
+}
+
+.password-field button {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  width: 44px;
+  height: 43px;
+  display: grid;
+  place-items: center;
+  background: none;
+  border: 0;
+  color: #aca898;
+}
+
+.password-field svg {
+  width: 21px;
+  height: 21px;
+}
+
+.primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid #f2d28b;
+  border-radius: 8px;
+  background: linear-gradient(115deg, #e9cb83, #c9a455);
+  color: #242016;
+  font-weight: 700;
+  font-size: 14px;
+  margin-top: 24px;
+  box-shadow: 0 5px 24px #d9b6650b;
+}
+
+.primary span {
+  font-size: 21px;
+}
+
+.primary:hover {
+  filter: brightness(1.07);
+}
+
+.error {
+  padding: 12px 14px;
+  border: 1px solid #ab5c4b;
+  border-radius: 6px;
+  color: #f4b9a7;
+  background: #ab5c4b15;
+  font-size: 13px;
+  line-height: 1.5;
+}

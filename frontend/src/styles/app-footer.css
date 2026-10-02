@@ -1,0 +1,14 @@
+footer {
+  padding: 22px 15px 26px;
+  text-align: center;
+  font-size: 8px;
+  letter-spacing: 1.7px;
+  color: #8d897a;
+}
+
+footer span {
+  display: block;
+  color: var(--gold);
+  font-size: 17px;
+  margin-bottom: 12px;
+}

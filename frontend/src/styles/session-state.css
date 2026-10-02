@@ -1,0 +1,49 @@
+.session-state {
+  padding: 80px 24px;
+  text-align: center;
+  min-height: 70svh;
+}
+
+.session-state p {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.text-button {
+  border: 0;
+  background: none;
+  color: var(--gold);
+  padding: 20px;
+  font-size: 13px;
+}
+
+.brand-mark {
+  color: var(--gold);
+  font-size: 32px;
+}
+
+.primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid #f2d28b;
+  border-radius: 8px;
+  background: linear-gradient(115deg, #e9cb83, #c9a455);
+  color: #242016;
+  font-weight: 700;
+  font-size: 14px;
+  margin-top: 24px;
+  box-shadow: 0 5px 24px #d9b6650b;
+}
+
+.primary span {
+  font-size: 21px;
+}
+
+.primary:hover {
+  filter: brightness(1.07);
+}

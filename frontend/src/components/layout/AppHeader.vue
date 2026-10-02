@@ -9,3 +9,5 @@ defineProps<{ authenticated: boolean }>()
     ><span class="edition">LOS PREMIOS</span>
   </header>
 </template>
+
+<style scoped src="../../styles/app-header.css"></style>

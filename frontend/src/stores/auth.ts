@@ -56,7 +56,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       if (token.value) {
         user.value = await request<User>('/auth/me', {}, token.value)
-        location.hash = '/profile'
+        if (location.hash !== '#/events/manage') location.hash = '/profile'
       }
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 401) logout()
@@ -69,6 +69,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
   return {
     user,
+    token,
     busy,
     restoring,
     error,

@@ -2,6 +2,9 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
@@ -12,22 +15,59 @@ import { CreateEventDto, UpdateEventDto } from './dto/event.dto';
 import { Event, EventDocument, EventStatus } from './schemas/event.schema';
 
 @Injectable()
-export class EventsService {
+export class EventsService implements OnModuleInit, OnModuleDestroy {
+  private timer?: ReturnType<typeof setInterval>;
+  private readonly logger = new Logger(EventsService.name);
+
+  async onModuleInit() {
+    await this.closeExpired();
+    this.timer = setInterval(() => {
+      void this.closeExpired().catch((error: unknown) =>
+        this.logger.error(error),
+      );
+    }, 1000);
+    this.timer.unref();
+  }
+
+  onModuleDestroy() {
+    if (this.timer) clearInterval(this.timer);
+  }
+
+  async closeExpired() {
+    await this.eventModel
+      .updateMany(
+        { status: EventStatus.OPEN, endDate: { $lte: new Date() } },
+        { $set: { status: EventStatus.CLOSED } },
+      )
+      .exec();
+  }
+
+  private validateDates(startDate: Date, endDate: Date) {
+    if (
+      !Number.isFinite(startDate.getTime()) ||
+      !Number.isFinite(endDate.getTime()) ||
+      endDate <= startDate
+    )
+      throw new BadRequestException('endDate must be after startDate');
+  }
+
   constructor(
     @InjectModel(Event.name) private readonly eventModel: Model<Event>,
     private readonly usersService: UsersService,
   ) {}
 
   async listMine(user: UserDocument) {
+    await this.closeExpired();
     const events = await this.eventModel
       .find({ participants: user._id })
-      .sort({ date: -1 })
+      .sort({ startDate: -1 })
       .exec();
     return events.map((event) => this.summary(event));
   }
 
   async listAll() {
-    const events = await this.eventModel.find().sort({ date: -1 }).exec();
+    await this.closeExpired();
+    const events = await this.eventModel.find().sort({ startDate: -1 }).exec();
     return events.map((event) => this.summary(event));
   }
 
@@ -43,36 +83,76 @@ export class EventsService {
   }
 
   async create(dto: CreateEventDto, user: UserDocument) {
+    const startDate = new Date(dto.startDate);
+    const endDate = new Date(dto.endDate);
+    this.validateDates(startDate, endDate);
     const participants = await this.validateParticipants(
       dto.participantIds ?? [],
     );
     const event = await this.eventModel.create({
       name: dto.name,
-      date: new Date(dto.date),
+      startDate,
+      endDate,
       description: dto.description,
       participants,
       createdBy: user._id,
-      status: EventStatus.DRAFT,
+      status:
+        endDate <= new Date()
+          ? EventStatus.CLOSED
+          : (dto.status ?? EventStatus.OPEN),
     });
     return this.detail(event);
   }
 
   async update(id: string, dto: UpdateEventDto) {
-    this.validateId(id);
-    const changes: { name?: string; date?: Date; description?: string } = {};
+    const current = await this.findEvent(id);
+    const changes: {
+      name?: string;
+      startDate?: Date;
+      endDate?: Date;
+      description?: string;
+      status?: EventStatus;
+    } = {};
     if (dto.name !== undefined) changes.name = dto.name;
-    if (dto.date !== undefined) changes.date = new Date(dto.date);
+    if (dto.startDate !== undefined) {
+      if (
+        current.startDate <= new Date() &&
+        new Date(dto.startDate).getTime() !== current.startDate.getTime()
+      )
+        throw new ConflictException(
+          'startDate cannot change after voting starts',
+        );
+      changes.startDate = new Date(dto.startDate);
+    }
+    if (dto.endDate !== undefined) changes.endDate = new Date(dto.endDate);
+    this.validateDates(
+      changes.startDate ?? current.startDate,
+      changes.endDate ?? current.endDate,
+    );
+    if (
+      dto.status === EventStatus.OPEN &&
+      current.status === EventStatus.CLOSED
+    )
+      throw new ConflictException('Closed events cannot be reopened');
+    if (dto.status !== undefined) changes.status = dto.status;
+    if ((changes.endDate ?? current.endDate) <= new Date())
+      changes.status = EventStatus.CLOSED;
     if (dto.description !== undefined) changes.description = dto.description;
     if (!Object.keys(changes).length)
       throw new BadRequestException('No fields to update');
     const event = await this.eventModel
-      .findByIdAndUpdate(
-        id,
+      .findOneAndUpdate(
+        {
+          _id: id,
+          status: current.status,
+          startDate: current.startDate,
+          endDate: current.endDate,
+        },
         { $set: changes },
         { new: true, runValidators: true },
       )
       .exec();
-    if (!event) throw new NotFoundException('Event not found');
+    if (!event) throw new ConflictException('Event changed; retry the update');
     return this.detail(event);
   }
 
@@ -81,48 +161,46 @@ export class EventsService {
     const participants = await this.validateParticipants(participantIds);
     const event = await this.eventModel
       .findOneAndUpdate(
-        { _id: id, status: EventStatus.DRAFT },
+        { _id: id, status: EventStatus.OPEN, startDate: { $gt: new Date() } },
         { $set: { participants } },
         { new: true, runValidators: true },
       )
       .exec();
     if (!event)
-      throw new ConflictException('Participants can only change in DRAFT');
+      throw new ConflictException(
+        'Participants can only change before voting starts',
+      );
     return this.detail(event);
   }
 
   async setStatus(id: string, status: EventStatus) {
-    await this.findEvent(id);
-    if (status === EventStatus.DRAFT)
-      throw new ConflictException('Cannot return to DRAFT');
-    const previousStatus =
-      status === EventStatus.OPEN ? EventStatus.DRAFT : EventStatus.OPEN;
+    const current = await this.findEvent(id);
+    if (status === EventStatus.OPEN && current.status === EventStatus.CLOSED)
+      throw new ConflictException('Closed events cannot be reopened');
     const event = await this.eventModel
       .findOneAndUpdate(
-        {
-          _id: id,
-          status: previousStatus,
-          ...(status === EventStatus.OPEN
-            ? { 'participants.0': { $exists: true } }
-            : {}),
-        },
+        { _id: id, status: current.status },
         { $set: { status } },
         { new: true, runValidators: true },
       )
       .exec();
-    if (!event)
-      throw new ConflictException(
-        'Invalid transition or event has no participants',
-      );
+    if (!event) throw new ConflictException('Event changed; retry the update');
     return this.detail(event);
   }
 
   async remove(id: string) {
     await this.findEvent(id);
     const event = await this.eventModel
-      .findOneAndDelete({ _id: id, status: EventStatus.DRAFT })
+      .findOneAndDelete({
+        _id: id,
+        status: EventStatus.OPEN,
+        startDate: { $gt: new Date() },
+      })
       .exec();
-    if (!event) throw new ConflictException('Only DRAFT events can be deleted');
+    if (!event)
+      throw new ConflictException(
+        'Only events whose voting has not started can be deleted',
+      );
   }
 
   private validateId(id: string) {
@@ -132,6 +210,7 @@ export class EventsService {
 
   private async findEvent(id: string) {
     this.validateId(id);
+    await this.closeExpired();
     const event = await this.eventModel.findById(id).exec();
     if (!event) throw new NotFoundException('Event not found');
     return event;
@@ -158,7 +237,8 @@ export class EventsService {
     return {
       id: event._id.toHexString(),
       name: event.name,
-      date: event.date.toISOString(),
+      startDate: event.startDate.toISOString(),
+      endDate: event.endDate.toISOString(),
       status: event.status,
       participantCount: event.participants.length,
     };

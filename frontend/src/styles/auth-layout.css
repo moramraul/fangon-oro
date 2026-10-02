@@ -1,0 +1,59 @@
+.auth-panel {
+  padding: 8px 24px 16px;
+}
+
+.auth-tabs {
+  display: flex;
+  border-bottom: 1px solid #37352c;
+  margin-bottom: 27px;
+}
+
+.auth-tabs a {
+  width: 50%;
+  text-align: center;
+  text-decoration: none;
+  font-size: 13px;
+  padding: 15px 0;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.auth-tabs a.active {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.eyebrow {
+  font-size: 9px;
+  letter-spacing: 2px;
+  font-weight: 600;
+  color: var(--gold);
+}
+
+.switch-copy {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+  margin: 23px 0 12px;
+}
+
+.switch-copy a {
+  color: var(--gold);
+  text-underline-offset: 4px;
+  margin-left: 4px;
+}
+
+.heading > p {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0 0 25px;
+}
+
+@media (max-width: 350px) {
+  .auth-panel {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+}

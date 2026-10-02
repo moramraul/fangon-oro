@@ -1,0 +1,20 @@
+.app-shell {
+  max-width: 480px;
+  margin: auto;
+  min-height: 100svh;
+  background: #141411;
+  overflow: hidden;
+}
+
+@media (min-width: 600px) {
+  :global(body) {
+    padding: 24px 0;
+    background: radial-gradient(ellipse at top, #29261a, #10100e 65%);
+  }
+
+  .app-shell {
+    border: 1px solid #3d3726;
+    border-radius: 18px;
+    min-height: calc(100svh - 48px);
+  }
+}

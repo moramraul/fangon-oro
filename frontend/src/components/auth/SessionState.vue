@@ -15,3 +15,5 @@ const auth = useAuthStore()
     ><button class="text-button" @click="auth.logout">Ir al inicio de sesión</button>
   </div>
 </template>
+
+<style scoped src="../../styles/session-state.css"></style>
