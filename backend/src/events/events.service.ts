@@ -11,6 +11,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { UserDocument } from '../users/schemas/user.schema';
 import { UsersService } from '../users/users.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateEventDto, UpdateEventDto } from './dto/event.dto';
 import { Event, EventDocument, EventStatus } from './schemas/event.schema';
 
@@ -54,6 +55,7 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
   constructor(
     @InjectModel(Event.name) private readonly eventModel: Model<Event>,
     private readonly usersService: UsersService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async listMine(user: UserDocument) {
@@ -101,6 +103,7 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
           ? EventStatus.CLOSED
           : (dto.status ?? EventStatus.OPEN),
     });
+    await this.notificationsService.eventIncluded(event, participants);
     return this.detail(event);
   }
 
@@ -157,19 +160,28 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
   }
 
   async setParticipants(id: string, participantIds: string[]) {
-    await this.findEvent(id);
+    const current = await this.findEvent(id);
     const participants = await this.validateParticipants(participantIds);
     const event = await this.eventModel
       .findOneAndUpdate(
-        { _id: id, status: EventStatus.OPEN, startDate: { $gt: new Date() } },
+        {
+          _id: id,
+          status: EventStatus.OPEN,
+          startDate: { $gt: new Date() },
+          participants: current.participants,
+        },
         { $set: { participants } },
         { new: true, runValidators: true },
       )
       .exec();
     if (!event)
       throw new ConflictException(
-        'Participants can only change before voting starts',
+        'Participants can only change before voting starts; if the event changed, retry',
       );
+    const added = participants.filter(
+      (id) => !current.participants.some((existing) => existing.equals(id)),
+    );
+    await this.notificationsService.eventIncluded(event, added);
     return this.detail(event);
   }
 

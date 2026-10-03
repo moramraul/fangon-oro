@@ -6,6 +6,7 @@ import {
 import { Model, Types } from 'mongoose';
 import { UserDocument } from '../users/schemas/user.schema';
 import { UsersService } from '../users/users.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { EventsService } from './events.service';
 import { Event, EventStatus } from './schemas/event.schema';
 
@@ -32,6 +33,7 @@ describe('EventsService permissions and state rules', () => {
     find: jest.fn(),
   };
   const users = { findSummariesByIds: jest.fn() };
+  const notifications = { eventIncluded: jest.fn() };
   let service: EventsService;
 
   beforeEach(() => {
@@ -46,6 +48,7 @@ describe('EventsService permissions and state rules', () => {
     service = new EventsService(
       model as unknown as Model<Event>,
       users as unknown as UsersService,
+      notifications as unknown as NotificationsService,
     );
   });
 
@@ -115,6 +118,7 @@ describe('EventsService permissions and state rules', () => {
         _id: eventId.toHexString(),
         status: EventStatus.OPEN,
         startDate: { $gt: expect.any(Date) as Date },
+        participants: [userId],
       },
       expect.anything(),
       expect.anything(),
@@ -155,5 +159,75 @@ describe('EventsService permissions and state rules', () => {
       (await service.setStatus(eventId.toHexString(), EventStatus.CLOSED))
         .status,
     ).toBe(EventStatus.CLOSED);
+  });
+  it('notifies participants after creating the event', async () => {
+    model.create.mockResolvedValue(event);
+    await service.create(
+      {
+        name: 'Test',
+        startDate: event.startDate.toISOString(),
+        endDate: event.endDate.toISOString(),
+        participantIds: [userId.toHexString()],
+      },
+      user,
+    );
+    expect(notifications.eventIncluded).toHaveBeenCalledWith(event, [userId]);
+    expect(model.create.mock.invocationCallOrder[0]).toBeLessThan(
+      notifications.eventIncluded.mock.invocationCallOrder[0],
+    );
+  });
+  it('notifies only newly added participants', async () => {
+    const newId = new Types.ObjectId();
+    users.findSummariesByIds.mockResolvedValue([
+      { id: userId.toHexString(), name: 'Old' },
+      { id: newId.toHexString(), name: 'New' },
+    ]);
+    const updated = { ...event, participants: [userId, newId] };
+    model.findOneAndUpdate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue(updated),
+    });
+    await service.setParticipants(eventId.toHexString(), [
+      userId.toHexString(),
+      newId.toHexString(),
+    ]);
+    expect(notifications.eventIncluded).toHaveBeenCalledWith(updated, [newId]);
+    expect(model.findOneAndUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ participants: event.participants }),
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+  it('does not notify existing participants again', async () => {
+    model.findOneAndUpdate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue(event),
+    });
+    await service.setParticipants(eventId.toHexString(), [
+      userId.toHexString(),
+    ]);
+    expect(notifications.eventIncluded).toHaveBeenCalledWith(event, []);
+  });
+  it('does not notify when the participant update conflicts', async () => {
+    model.findOneAndUpdate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue(null),
+    });
+    await expect(
+      service.setParticipants(eventId.toHexString(), [userId.toHexString()]),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(notifications.eventIncluded).not.toHaveBeenCalled();
+  });
+  it('does not notify when saving the event fails', async () => {
+    model.create.mockRejectedValue(new Error('Database unavailable'));
+    await expect(
+      service.create(
+        {
+          name: 'Test',
+          startDate: event.startDate.toISOString(),
+          endDate: event.endDate.toISOString(),
+          participantIds: [userId.toHexString()],
+        },
+        user,
+      ),
+    ).rejects.toThrow('Database unavailable');
+    expect(notifications.eventIncluded).not.toHaveBeenCalled();
   });
 });
