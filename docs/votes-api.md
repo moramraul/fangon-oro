@@ -1,65 +1,64 @@
-# Votos y resultados REST
+# Votaciones y resultados REST
 
-Primera versión: un voto por participante y evento, sin editar ni eliminar votos. No se permite votar a uno mismo, tampoco siendo ADMIN. El candidato debe participar y el evento estar OPEN. ADMIN también debe participar para votar.
+Cada participante emite una sola votaci?n por evento, repartiendo 5, 3 y 1 punto entre tres candidatos distintos. No puede votarse a s? mismo (tampoco ADMIN). Todos los candidatos y el votante deben participar en el evento. Por tanto, para votar hacen falta al menos cuatro participantes. No se editan ni eliminan votaciones.
 
-Los resultados agregados se pueden consultar antes y después del cierre, con los mismos permisos que el detalle: participantes o ADMIN. No se publican votantes ni votos individuales de otras personas. Los empates devuelven todos los líderes; sin votos no hay líderes.
+Todas las rutas requieren JWT. El evento debe estar abierto y dentro del intervalo de votaci?n. Las consultas de resultados y voto propio conservan los permisos del detalle del evento: participantes o ADMIN.
 
-Estas reglas iniciales se podrán ajustar antes del frontend. No hay WebSockets todavía.
-
-Todas las rutas requieren `Authorization: Bearer <token>`.
-
-## Emitir voto
+## Emitir votaci?n
 
 `POST /events/:eventId/votes`
 
 ```json
-{ "votedUserId": "ID_DEL_PARTICIPANTE" }
+{ "candidateIds": ["ID_5_PUNTOS", "ID_3_PUNTOS", "ID_1_PUNTO"] }
 ```
 
-Respuesta 201: `{ eventId, votedUserId, createdAt }`. El servidor obtiene el votante del JWT. No acepta voterId ni eventId en el cuerpo. Repetir voto devuelve 409; candidato inválido o voto a uno mismo 400; evento cerrado 409; ADMIN ajeno que intenta votar 403; USER ajeno 404.
+El orden determina la puntuaci?n. El servidor asigna los puntos y obtiene al votante del JWT. No acepta puntos, voterId ni eventId en el cuerpo. Deben enviarse exactamente tres IDs v?lidos y distintos, incluso comparando may?sculas y min?sculas.
 
-## Recuperar voto propio
+Respuesta 201:
+
+```ts
+{
+  eventId: string;
+  allocations: { votedUserId: string; points: number }[];
+  createdAt: string;
+}
+```
+
+Repetir votaci?n devuelve 409; candidatos inv?lidos, repetidos, ajenos o el propio votante devuelven 400; votaci?n fuera de plazo o evento cerrado devuelve 409; ADMIN ajeno devuelve 403; USER ajeno devuelve 404.
+
+## Votaci?n propia
 
 `GET /events/:eventId/votes/me`
 
-Respuesta 200: `{ eventId, votedUserId, createdAt }`, o `null` si aún no has votado. Vue puede usarlo para marcar la selección y desactivar el formulario.
+Devuelve el mismo formato o null si todav?a no ha votado. No se exponen votaciones individuales de otras personas.
 
 ## Resultados
 
 `GET /events/:eventId/results`
 
-Respuesta:
-
 ```ts
 interface EventResults {
   eventId: string;
-  status: 'DRAFT' | 'OPEN' | 'CLOSED';
-  totalVotes: number;
+  status: 'open' | 'closed';
+  totalVotes: number; // votaciones emitidas, no asignaciones ni puntos
+  totalPoints: number;
   participantCount: number;
   participationPercentage: number;
-  candidates: { id: string; name: string; votes: number; percentage: number }[];
+  candidates: { id: string; name: string; points: number; percentage: number }[];
   leaderIds: string[];
 }
 ```
 
-Se incluyen candidatos con cero votos, ordenados por votos descendentes y luego ID. Los porcentajes se redondean a dos decimales; pueden no sumar exactamente 100 por redondeo. Los líderes en OPEN son provisionales.
+Cada nueva votaci?n suma nueve puntos y cuenta como una participaci?n. Los candidatos se ordenan por puntos descendentes, despu?s por n?mero de votos de 5 y despu?s de 3, incluyendo candidatos con cero puntos. Los porcentajes de candidatos se calculan sobre totalPoints y se redondean a dos decimales. Sin puntos no hay l?deres. Los resultados de eventos abiertos son provisionales.
 
-## Consistencia
+Las clasificaciones por evento y general utilizan la misma suma de puntos; ver rankings-api.md.
 
-El índice único `(eventId, voterId)` impide duplicados incluso en peticiones simultáneas. Al iniciar el módulo se espera la inicialización del modelo y sus índices con la configuración actual de Mongoose.
+## Consistencia y votos anteriores
 
-El voto se escribe en una transacción junto con una actualización interna de Event condicionada a OPEN y a ambos participantes. Esta escritura incrementa `votingRevision`, que no se expone en la API, y hace que cierre y voto compitan sobre el mismo documento. Si el cierre gana, la transacción del voto no se confirma; si el voto gana, se acepta antes del cierre. MongoDB puede reintentar conflictos transitorios.
+El ?ndice ?nico (eventId, voterId) impide duplicados. Las tres asignaciones se guardan juntas en un ?nico documento dentro de la transacci?n que comprueba el estado y todos los participantes. Se incrementa votingRevision para coordinar cierres y votaciones concurrentes. Cuando todos los participantes han emitido su votaci?n se cierra el evento: se cuentan documentos, no asignaciones.
 
-Se necesita MongoDB con soporte de transacciones: Atlas o un replica set local. No funciona con un servidor local standalone. No se introduce ningún servicio adicional.
+Se necesita MongoDB Atlas o un replica set con soporte de transacciones. Los tests usan dobles de los modelos; no validan la atomicidad contra una base de datos real.
 
-## Comprobación manual
+Los documentos antiguos con votedUserId siguen ley?ndose como una asignaci?n de un punto, tanto en el voto propio como en resultados y clasificaciones. No se inventan los otros dos candidatos ni se modifican esos documentos. Los nuevos env?os usan exclusivamente candidateIds. Es un cambio de contrato: las entradas de candidatos y clasificaciones ahora exponen points y las clasificaciones totalPoints.
 
-1. Con un ADMIN, consultar GET /users y crear un evento con dos participantes.
-2. Abrirlo mediante PATCH /events/:id/status con `{ "status": "OPEN" }`.
-3. Con un participante, intentar votarse a sí mismo: debe devolver 400. Después, votar al otro participante y comprobar GET /events/:id/votes/me.
-4. Repetir el voto: debe devolver 409.
-5. Consultar resultados: un voto, candidato elegido con 100 %, restante con cero.
-6. Cerrar con ADMIN; un participante que todavía no ha votado debe recibir 409 al intentar votar.
-7. Un USER ajeno no debe poder consultar resultados ni votar.
-
-Las pruebas automáticas validan reglas y consultas con dobles de los modelos. La atomicidad real y la creación del índice requieren comprobarse contra MongoDB; no se conectó a Atlas para estas pruebas.
+El desempate se aplica en resultados, clasificaci?n del evento y clasificaci?n general: puntos totales, n?mero de votos de 5 (`fivePointVotes`) y n?mero de votos de 3 (`threePointVotes`), todos descendentes. Ambos contadores se incluyen en cada candidato o entrada. Si coinciden los tres valores, comparten posici?n y, si encabezan la clasificaci?n, aparecen juntos en `leaderIds`. El ID solo estabiliza el orden visual; no rompe el empate. Los votos antiguos de un punto no incrementan ninguno de estos contadores.

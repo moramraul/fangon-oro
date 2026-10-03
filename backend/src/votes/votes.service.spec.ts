@@ -14,12 +14,20 @@ import { VotesService } from './votes.service';
 describe('VotesService', () => {
   const voterId = new Types.ObjectId();
   const candidateId = new Types.ObjectId();
+  const secondId = new Types.ObjectId();
+  const thirdId = new Types.ObjectId();
+  const selections = [candidateId, secondId, thirdId].map((id) =>
+    id.toHexString(),
+  );
   const eventId = new Types.ObjectId();
   const user = { _id: voterId, role: 'USER' } as UserDocument;
   const vote = {
     eventId,
     voterId,
-    votedUserId: candidateId,
+    allocations: [candidateId, secondId, thirdId].map((id, i) => ({
+      votedUserId: id,
+      points: [5, 3, 1][i],
+    })),
     createdAt: new Date(),
   };
   const session = {} as ClientSession;
@@ -37,6 +45,7 @@ describe('VotesService', () => {
   beforeEach(() => {
     jest.resetAllMocks();
     votes.countDocuments.mockReturnValue({
+      exec: jest.fn().mockResolvedValue(2),
       session: jest
         .fn()
         .mockReturnValue({ exec: jest.fn().mockResolvedValue(1) }),
@@ -45,10 +54,12 @@ describe('VotesService', () => {
     details.getDetail.mockResolvedValue({
       id: eventId.toHexString(),
       status: EventStatus.OPEN,
-      participantCount: 2,
+      participantCount: 4,
       participants: [
         { id: voterId.toHexString(), name: 'Davo' },
-        { id: candidateId.toHexString(), name: 'Héctor' },
+        { id: candidateId.toHexString(), name: 'Candidate' },
+        { id: secondId.toHexString(), name: 'Second' },
+        { id: thirdId.toHexString(), name: 'Third' },
       ],
     });
     connection.transaction.mockImplementation(
@@ -58,7 +69,7 @@ describe('VotesService', () => {
     events.findOneAndUpdate.mockReturnValue({
       exec: jest.fn().mockResolvedValue({
         _id: eventId,
-        participants: [voterId, candidateId],
+        participants: [voterId, candidateId, secondId, thirdId],
       }),
     });
     votes.create.mockResolvedValue([vote]);
@@ -72,7 +83,7 @@ describe('VotesService', () => {
 
   it('rejects an ADMIN who is not a participant', async () => {
     await expect(
-      service.cast(eventId.toHexString(), candidateId.toHexString(), {
+      service.cast(eventId.toHexString(), selections, {
         _id: new Types.ObjectId(),
         role: 'ADMIN',
       } as UserDocument),
@@ -86,7 +97,11 @@ describe('VotesService', () => {
       await expect(
         service.cast(
           eventId.toHexString(),
-          voterId.toHexString().toUpperCase(),
+          [
+            voterId.toHexString().toUpperCase(),
+            secondId.toHexString(),
+            thirdId.toHexString(),
+          ],
           {
             _id: voterId,
             role,
@@ -104,44 +119,45 @@ describe('VotesService', () => {
     await expect(
       service.cast(
         eventId.toHexString(),
-        new Types.ObjectId().toHexString(),
+        [
+          new Types.ObjectId().toHexString(),
+          secondId.toHexString(),
+          thirdId.toHexString(),
+        ],
         user,
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(votes.create).not.toHaveBeenCalled();
   });
 
-  it('checks OPEN and both participants inside the transaction', async () => {
-    const result = await service.cast(
-      eventId.toHexString(),
-      candidateId.toHexString(),
-      user,
-    );
+  it('checks OPEN and all participants inside the transaction', async () => {
+    const result = await service.cast(eventId.toHexString(), selections, user);
     expect(events.findOneAndUpdate).toHaveBeenCalledWith(
       {
         _id: eventId.toHexString(),
         status: EventStatus.OPEN,
         startDate: { $lte: expect.any(Date) as Date },
         endDate: { $gt: expect.any(Date) as Date },
-        participants: { $all: [voterId, candidateId] },
+        participants: { $all: [voterId, candidateId, secondId, thirdId] },
       },
       { $inc: { votingRevision: 1 } },
       { session, new: true },
     );
     expect(votes.create).toHaveBeenCalledWith(
-      [{ eventId, voterId, votedUserId: candidateId }],
+      [{ eventId, voterId, allocations: vote.allocations }],
       { session },
     );
     expect(result).not.toHaveProperty('voterId');
+    expect(result.allocations.map((entry) => entry.points)).toEqual([5, 3, 1]);
   });
 
   it('closes after the last vote', async () => {
     votes.countDocuments.mockReturnValue({
       session: jest
         .fn()
-        .mockReturnValue({ exec: jest.fn().mockResolvedValue(2) }),
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue(4) }),
     });
-    await service.cast(eventId.toHexString(), candidateId.toHexString(), user);
+    await service.cast(eventId.toHexString(), selections, user);
     expect(events.updateOne).toHaveBeenCalledWith(
       { _id: eventId, status: EventStatus.OPEN },
       { $set: { status: EventStatus.CLOSED } },
@@ -153,7 +169,7 @@ describe('VotesService', () => {
       exec: jest.fn().mockResolvedValue(null),
     });
     await expect(
-      service.cast(eventId.toHexString(), candidateId.toHexString(), user),
+      service.cast(eventId.toHexString(), selections, user),
     ).rejects.toBeInstanceOf(ConflictException);
     expect(votes.create).not.toHaveBeenCalled();
   });
@@ -161,7 +177,7 @@ describe('VotesService', () => {
   it('translates duplicate index errors to 409', async () => {
     votes.create.mockRejectedValue({ code: 11000 });
     await expect(
-      service.cast(eventId.toHexString(), candidateId.toHexString(), user),
+      service.cast(eventId.toHexString(), selections, user),
     ).rejects.toBeInstanceOf(ConflictException);
     expect(VoteSchema.indexes()).toEqual(
       expect.arrayContaining([
@@ -172,10 +188,14 @@ describe('VotesService', () => {
 
   it('includes zero-vote candidates and no leaders before votes exist', async () => {
     votes.aggregate.mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
+    votes.countDocuments.mockReturnValue({
+      exec: jest.fn().mockResolvedValue(0),
+    });
     const result = await service.results(eventId.toHexString(), user);
     expect(result.totalVotes).toBe(0);
+    expect(result.totalPoints).toBe(0);
     expect(result.leaderIds).toEqual([]);
-    expect(result.candidates).toHaveLength(2);
+    expect(result.candidates).toHaveLength(4);
     expect(
       result.candidates.every((candidate) => candidate.percentage === 0),
     ).toBe(true);
@@ -184,13 +204,13 @@ describe('VotesService', () => {
   it('reports all tied leaders', async () => {
     votes.aggregate.mockReturnValue({
       exec: jest.fn().mockResolvedValue([
-        { _id: voterId, votes: 1 },
-        { _id: candidateId, votes: 1 },
+        { _id: voterId, points: 9 },
+        { _id: candidateId, points: 9 },
       ]),
     });
     const result = await service.results(eventId.toHexString(), user);
     expect(result.totalVotes).toBe(2);
-    expect(result.participationPercentage).toBe(100);
+    expect(result.participationPercentage).toBe(50);
     expect(result.leaderIds).toEqual(
       expect.arrayContaining([
         voterId.toHexString(),
@@ -198,7 +218,7 @@ describe('VotesService', () => {
       ]),
     );
     expect(result.candidates.map((candidate) => candidate.percentage)).toEqual([
-      50, 50,
+      50, 50, 0, 0,
     ]);
   });
 
@@ -218,4 +238,83 @@ describe('VotesService', () => {
       voterId,
     });
   });
+  it('rejects repeated candidates after normalizing IDs', async () => {
+    await expect(
+      service.cast(
+        eventId.toHexString(),
+        [selections[0], selections[0].toUpperCase(), selections[2]],
+        user,
+      ),
+    ).rejects.toThrow('Candidates must be distinct');
+    expect(votes.create).not.toHaveBeenCalled();
+  });
+  it('counts one ballot separately from its nine points', async () => {
+    votes.countDocuments.mockReturnValue({
+      exec: jest.fn().mockResolvedValue(1),
+    });
+    votes.aggregate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue([
+        { _id: candidateId, points: 5 },
+        { _id: secondId, points: 3 },
+        { _id: thirdId, points: 1 },
+      ]),
+    });
+    const result = await service.results(eventId.toHexString(), user);
+    expect(result.totalVotes).toBe(1);
+    expect(result.totalPoints).toBe(9);
+    expect(result.participationPercentage).toBe(25);
+    expect(result.candidates.map((entry) => entry.points)).toEqual([
+      5, 3, 1, 0,
+    ]);
+    expect(result.leaderIds).toEqual([candidateId.toHexString()]);
+  });
+  it('returns the own ballot with all allocations', async () => {
+    votes.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(vote) });
+    const result = await service.mine(eventId.toHexString(), user);
+    expect(result?.allocations.map((entry) => entry.points)).toEqual([5, 3, 1]);
+  });
+  it('reads historical single-candidate votes as one point', async () => {
+    votes.findOne.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({
+        eventId,
+        voterId,
+        votedUserId: candidateId,
+        createdAt: vote.createdAt,
+      }),
+    });
+    expect(
+      (await service.mine(eventId.toHexString(), user))?.allocations,
+    ).toEqual([{ votedUserId: candidateId.toHexString(), points: 1 }]);
+  });
+  it.each([
+    [2, 0, 1, 3], // More fives takes precedence over more threes.
+    [1, 2, 1, 1], // Threes break a tie in fives.
+  ])(
+    'uses score tie-breaks for event results (%p, %p, %p, %p)',
+    async (fiveA, threeA, fiveB, threeB) => {
+      votes.aggregate.mockReturnValue({
+        exec: jest.fn().mockResolvedValue([
+          {
+            _id: candidateId,
+            points: 15,
+            fivePointVotes: fiveA,
+            threePointVotes: threeA,
+          },
+          {
+            _id: secondId,
+            points: 15,
+            fivePointVotes: fiveB,
+            threePointVotes: threeB,
+          },
+        ]),
+      });
+      const result = await service.results(eventId.toHexString(), user);
+      expect(result.leaderIds).toEqual([candidateId.toHexString()]);
+      expect(result.candidates[0]).toMatchObject({
+        id: candidateId.toHexString(),
+        fivePointVotes: fiveA,
+        threePointVotes: threeA,
+      });
+    },
+  );
 });

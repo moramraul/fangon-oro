@@ -10,6 +10,8 @@ import { Connection, Model, Types } from 'mongoose';
 import { EventsService } from '../events/events.service';
 import { Event, EventStatus } from '../events/schemas/event.schema';
 import { UserDocument } from '../users/schemas/user.schema';
+import { compareScores, Score } from './score';
+import { pointsPipeline } from './points.pipeline';
 import { Vote } from './schemas/vote.schema';
 
 @Injectable()
@@ -26,7 +28,7 @@ export class VotesService implements OnModuleInit {
     await this.voteModel.init();
   }
 
-  async cast(eventId: string, votedUserId: string, user: UserDocument) {
+  async cast(eventId: string, candidateIds: string[], user: UserDocument) {
     const detail = await this.eventsService.getDetail(eventId, user);
     if (
       !detail.participants.some(
@@ -35,19 +37,30 @@ export class VotesService implements OnModuleInit {
     ) {
       throw new ForbiddenException('Only participants can vote');
     }
-    if (!Types.ObjectId.isValid(votedUserId))
-      throw new BadRequestException('Invalid candidate ID');
-    const candidateId = new Types.ObjectId(votedUserId);
-    if (candidateId.equals(user._id)) {
-      throw new BadRequestException('You cannot vote for yourself');
-    }
     if (
-      !detail.participants.some(
-        (participant) => participant.id === candidateId.toHexString(),
+      !Array.isArray(candidateIds) ||
+      candidateIds.length !== 3 ||
+      candidateIds.some((id) => !Types.ObjectId.isValid(id))
+    )
+      throw new BadRequestException('Select exactly three valid candidates');
+    const ids = candidateIds.map((id) => new Types.ObjectId(id));
+    if (new Set(ids.map((id) => id.toHexString())).size !== 3)
+      throw new BadRequestException('Candidates must be distinct');
+    if (ids.some((id) => id.equals(user._id)))
+      throw new BadRequestException('You cannot vote for yourself');
+    if (
+      ids.some(
+        (id) =>
+          !detail.participants.some(
+            (participant) => participant.id === id.toHexString(),
+          ),
       )
-    ) {
-      throw new BadRequestException('Candidate must participate in the event');
-    }
+    )
+      throw new BadRequestException('Candidates must participate in the event');
+    const allocations = ids.map((id, index) => ({
+      votedUserId: id,
+      points: [5, 3, 1][index],
+    }));
     try {
       return await this.connection.transaction(async (session) => {
         const event = await this.eventModel
@@ -57,7 +70,7 @@ export class VotesService implements OnModuleInit {
               status: EventStatus.OPEN,
               startDate: { $lte: new Date() },
               endDate: { $gt: new Date() },
-              participants: { $all: [user._id, candidateId] },
+              participants: { $all: [user._id, ...ids] },
             },
             { $inc: { votingRevision: 1 } },
             { session, new: true },
@@ -65,7 +78,7 @@ export class VotesService implements OnModuleInit {
           .exec();
         if (!event) throw new ConflictException('Voting is not open');
         const [vote] = await this.voteModel.create(
-          [{ eventId: event._id, voterId: user._id, votedUserId: candidateId }],
+          [{ eventId: event._id, voterId: user._id, allocations }],
           { session },
         );
         const totalVotes = await this.voteModel
@@ -110,32 +123,42 @@ export class VotesService implements OnModuleInit {
   async results(eventId: string, user: UserDocument) {
     const event = await this.eventsService.getDetail(eventId, user);
     const counts = await this.voteModel
-      .aggregate<{ _id: Types.ObjectId; votes: number }>([
+      .aggregate<{ _id: Types.ObjectId } & Score>([
         { $match: { eventId: new Types.ObjectId(eventId) } },
-        { $group: { _id: '$votedUserId', votes: { $sum: 1 } } },
+        ...pointsPipeline(),
       ])
       .exec();
-    const totalVotes = counts.reduce((total, entry) => total + entry.votes, 0);
+    const totalVotes = await this.voteModel
+      .countDocuments({ eventId: new Types.ObjectId(eventId) })
+      .exec();
+    const totalPoints = counts.reduce(
+      (total, entry) => total + entry.points,
+      0,
+    );
     const byUser = new Map(
-      counts.map((entry) => [entry._id.toHexString(), entry.votes]),
+      counts.map((entry) => [entry._id.toHexString(), entry]),
     );
     const candidates = event.participants
       .map((participant) => {
-        const votes = byUser.get(participant.id) ?? 0;
+        const score = byUser.get(participant.id);
+        const points = score?.points ?? 0;
         return {
           ...participant,
-          votes,
-          percentage: totalVotes
-            ? Math.round((votes / totalVotes) * 10000) / 100
+          points,
+          fivePointVotes: score?.fivePointVotes ?? 0,
+          threePointVotes: score?.threePointVotes ?? 0,
+          percentage: totalPoints
+            ? Math.round((points / totalPoints) * 10000) / 100
             : 0,
         };
       })
-      .sort((a, b) => b.votes - a.votes || a.id.localeCompare(b.id));
-    const highest = candidates[0]?.votes ?? 0;
+      .sort((a, b) => compareScores(a, b) || a.id.localeCompare(b.id));
+    const highest = candidates[0]?.points ?? 0;
     return {
       eventId: event.id,
       status: event.status,
       totalVotes,
+      totalPoints,
       participantCount: event.participantCount,
       participationPercentage: event.participantCount
         ? Math.round((totalVotes / event.participantCount) * 10000) / 100
@@ -143,7 +166,9 @@ export class VotesService implements OnModuleInit {
       candidates,
       leaderIds: highest
         ? candidates
-            .filter((candidate) => candidate.votes === highest)
+            .filter(
+              (candidate) => compareScores(candidate, candidates[0]) === 0,
+            )
             .map((candidate) => candidate.id)
         : [],
     };
@@ -152,7 +177,13 @@ export class VotesService implements OnModuleInit {
   private response(vote: Vote) {
     return {
       eventId: vote.eventId.toHexString(),
-      votedUserId: vote.votedUserId.toHexString(),
+      allocations: (
+        vote.allocations ??
+        (vote.votedUserId ? [{ votedUserId: vote.votedUserId, points: 1 }] : [])
+      ).map((entry) => ({
+        votedUserId: entry.votedUserId.toHexString(),
+        points: entry.points,
+      })),
       createdAt: vote.createdAt.toISOString(),
     };
   }

@@ -16,7 +16,7 @@ export class VotesController {
     @Body() dto: CreateVoteDto,
     @CurrentUser() user: UserDocument,
   ) {
-    return this.votesService.cast(eventId, dto.votedUserId, user);
+    return this.votesService.cast(eventId, dto.candidateIds, user);
   }
 
   @Get('votes/me')

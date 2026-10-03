@@ -1,6 +1,15 @@
-import { IsMongoId } from 'class-validator';
-
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  ArrayUnique,
+  IsArray,
+  IsMongoId,
+} from 'class-validator';
 export class CreateVoteDto {
-  @IsMongoId()
-  votedUserId!: string;
+  @IsArray()
+  @ArrayMinSize(3)
+  @ArrayMaxSize(3)
+  @ArrayUnique((id: string) => (typeof id === 'string' ? id.toLowerCase() : id))
+  @IsMongoId({ each: true })
+  candidateIds!: string[];
 }

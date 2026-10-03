@@ -16,5 +16,6 @@ import { Vote, VoteSchema } from './schemas/vote.schema';
   ],
   controllers: [VotesController],
   providers: [VotesService],
+  exports: [VotesService],
 })
 export class VotesModule {}
