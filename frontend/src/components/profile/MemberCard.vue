@@ -19,9 +19,16 @@ const initials = computed(() =>
       <span class="eyebrow">MI PERFIL</span
       ><span class="member-badge">{{ user.role === 'ADMIN' ? 'Administrador' : 'Miembro' }}</span>
     </div>
-    <div class="avatar">{{ initials }}</div>
-    <h2>{{ user.name }}</h2>
-    <p class="member-email">{{ user.email }}</p>
+    <div class="member-details">
+      <div class="member-info">
+        <h2>{{ user.name }}</h2>
+        <p class="member-email">{{ user.email }}</p>
+      </div>
+      <div class="avatar">
+        <img v-if="user.avatar" :src="user.avatar" :alt="`Foto de ${user.name}`" />
+        <span v-else>{{ initials }}</span>
+      </div>
+    </div>
     <div class="card-bottom"><span>FANGÓN DE ORO</span><span aria-hidden="true">✦</span></div>
   </div>
 </template>

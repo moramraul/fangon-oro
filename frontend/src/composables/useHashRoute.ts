@@ -1,9 +1,12 @@
 import { onMounted, onUnmounted, ref } from 'vue'
-type Route = 'login' | 'register' | 'profile' | 'manage-events'
-function readRoute(): Route {
-  if (location.hash === '#/events/manage') return 'manage-events'
-  if (location.hash === '#/register') return 'register'
-  if (location.hash === '#/profile') return 'profile'
+type Route = 'login' | 'register' | 'profile' | 'edit-profile' | 'events' | 'manage-events' | 'vote'
+export function readRoute(hash = location.hash): Route {
+  if (/^#\/events\/[^/]+\/vote$/.test(hash)) return 'vote'
+  if (hash === '#/profile/edit') return 'edit-profile'
+  if (hash === '#/events') return 'events'
+  if (hash === '#/events/manage') return 'manage-events'
+  if (hash === '#/register') return 'register'
+  if (hash === '#/profile') return 'profile'
   return 'login'
 }
 export function useHashRoute() {

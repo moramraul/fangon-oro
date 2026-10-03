@@ -1,6 +1,7 @@
 ﻿export interface User {
   id: string
   name: string
+  avatar?: string
   email: string
   role: 'USER' | 'ADMIN'
 }
@@ -47,5 +48,6 @@ export async function request<T>(
         'El servidor no ha podido completar la operación. Inténtalo de nuevo.',
     )
   }
-  return response.json() as Promise<T>
+  const body = await response.text()
+  return (body.trim() ? JSON.parse(body) : null) as T
 }

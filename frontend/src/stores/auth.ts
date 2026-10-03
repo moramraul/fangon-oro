@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { ApiError, request, type User } from '../api'
+import { readRoute } from '../composables/useHashRoute'
 
 export interface AuthCredentials {
   email: string
@@ -56,7 +57,8 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       if (token.value) {
         user.value = await request<User>('/auth/me', {}, token.value)
-        if (location.hash !== '#/events/manage') location.hash = '/profile'
+        if (['login', 'register'].includes(readRoute()))
+          location.hash = '/profile'
       }
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 401) logout()

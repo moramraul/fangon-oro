@@ -1,0 +1,89 @@
+.profile-edit-back {
+  display: inline-block;
+  color: var(--gold);
+  text-decoration: none;
+  margin-bottom: 28px;
+  font-size: 13px;
+}
+.profile-edit-form {
+  margin-top: 28px;
+}
+.profile-edit-form fieldset {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+.profile-edit-form label {
+  font-size: 13px;
+  color: #e4c888;
+}
+.profile-edit-form input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid #8c713b;
+  border-radius: 8px;
+  padding: 12px;
+  background: #171713;
+  color: #f4eddb;
+  font: inherit;
+}
+.profile-edit-form input[type='file'] {
+  font-size: 12px;
+}
+.profile-edit-form input::file-selector-button {
+  border: 0;
+  border-radius: 4px;
+  padding: 8px;
+  margin-right: 10px;
+  background: #d9b665;
+  color: #171713;
+  cursor: pointer;
+}
+.profile-edit-help {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+  margin: 0 0 8px;
+}
+.profile-edit-remove {
+  justify-self: start;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  color: var(--gold);
+  text-decoration: underline;
+}
+.profile-edit-save {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 24px;
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  background: var(--gold);
+  color: #171713;
+  font: inherit;
+  font-weight: 600;
+}
+.profile-edit-form button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.profile-edit-error,
+.profile-edit-success {
+  font-size: 13px;
+  line-height: 1.6;
+}
+.profile-edit-error {
+  color: #ffb4a8;
+}
+.profile-edit-success {
+  color: #b9dca5;
+}
+.profile-edit :focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 4px;
+}
