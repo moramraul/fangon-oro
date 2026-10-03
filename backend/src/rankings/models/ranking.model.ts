@@ -1,4 +1,4 @@
-import { EventStatus } from '../../events/schemas/event.schema';
+import { EventSummaryStatus } from '../../events/schemas/event.schema';
 import { compareScores, Score } from '../../votes/score';
 
 export interface RankingEntry {
@@ -15,7 +15,7 @@ export interface RankingEntry {
 export class Ranking {
   scope!: 'event' | 'general';
   eventId?: string;
-  status?: EventStatus;
+  status?: EventSummaryStatus;
   totalPoints!: number;
   entries!: RankingEntry[];
   leaderIds!: string[];
@@ -23,7 +23,7 @@ export class Ranking {
   static from(
     candidates: (Score & { id: string; name: string })[],
     totalPoints: number,
-    event?: { id: string; status: EventStatus },
+    event?: { id: string; status: EventSummaryStatus },
   ): Ranking {
     const sorted = [...candidates].sort(
       (a, b) => compareScores(a, b) || a.id.localeCompare(b.id),

@@ -79,6 +79,32 @@ describe('EventsService permissions and state rules', () => {
     expect(model.find).toHaveBeenCalledWith({ participants: userId });
   });
 
+  it('lists legacy events alongside current events without missing-date errors', async () => {
+    const legacy = {
+      ...event,
+      date: event.startDate,
+      startDate: undefined,
+      endDate: undefined,
+      status: 'DRAFT',
+    };
+    model.find.mockReturnValue({
+      sort: jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue([legacy, event]),
+      }),
+    });
+    const result = await service.listMine(user);
+    expect(result[0]).toMatchObject({
+      startDate: event.startDate.toISOString(),
+      endDate: null,
+      status: 'draft',
+    });
+    expect(result[1]).toMatchObject({
+      startDate: event.startDate.toISOString(),
+      endDate: event.endDate.toISOString(),
+      status: 'open',
+    });
+  });
+
   it('rejects unknown participants before saving', async () => {
     users.findSummariesByIds.mockResolvedValue([]);
     await expect(

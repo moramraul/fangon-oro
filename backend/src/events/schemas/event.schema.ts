@@ -7,12 +7,18 @@ export enum EventStatus {
   CLOSED = 'closed',
 }
 
+export type EventSummaryStatus = EventStatus | 'draft';
+
 export type EventDocument = HydratedDocument<Event>;
 
 @Schema({ timestamps: true })
 export class Event {
   @Prop({ required: true, trim: true, maxlength: 100 })
   name!: string;
+
+  // Retained for events saved before startDate/endDate were introduced.
+  @Prop()
+  date?: Date;
 
   @Prop({ required: true })
   startDate!: Date;

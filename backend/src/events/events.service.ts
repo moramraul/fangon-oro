@@ -13,7 +13,12 @@ import { UserDocument } from '../users/schemas/user.schema';
 import { UsersService } from '../users/users.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateEventDto, UpdateEventDto } from './dto/event.dto';
-import { Event, EventDocument, EventStatus } from './schemas/event.schema';
+import {
+  Event,
+  EventDocument,
+  EventStatus,
+  EventSummaryStatus,
+} from './schemas/event.schema';
 
 @Injectable()
 export class EventsService implements OnModuleInit, OnModuleDestroy {
@@ -246,12 +251,20 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
   }
 
   private summary(event: EventDocument) {
+    const startDate = event.startDate ?? event.date;
+    const storedStatus = String(event.status).toLowerCase();
+    const status: EventSummaryStatus =
+      storedStatus === 'closed'
+        ? EventStatus.CLOSED
+        : storedStatus === 'open'
+          ? EventStatus.OPEN
+          : 'draft';
     return {
       id: event._id.toHexString(),
       name: event.name,
-      startDate: event.startDate.toISOString(),
-      endDate: event.endDate.toISOString(),
-      status: event.status,
+      startDate: startDate?.toISOString() ?? null,
+      endDate: event.endDate?.toISOString() ?? null,
+      status,
       participantCount: event.participants.length,
     };
   }
