@@ -3,6 +3,7 @@ type Route =
   | 'login'
   | 'register'
   | 'overview'
+  | 'rankings'
   | 'profile'
   | 'edit-profile'
   | 'events'
@@ -11,6 +12,7 @@ type Route =
 export function readRoute(hash = location.hash): Route {
   if (hash === '#/overview' || hash === '#/') return 'overview'
   if (/^#\/events\/[^/]+\/vote$/.test(hash)) return 'vote'
+  if (hash === '#/rankings' || /^#\/rankings\/events\/[^/]+$/.test(hash)) return 'rankings'
   if (hash === '#/profile/edit') return 'edit-profile'
   if (hash === '#/events') return 'events'
   if (hash === '#/events/manage') return 'manage-events'

@@ -1,0 +1,29 @@
+.rankings {
+  padding: 24px 16px;
+}
+.rankings-heading {
+  margin: 28px 0 24px;
+}
+.rankings-heading h1 {
+  color: #f3d68d;
+  font-size: 32px;
+}
+.rankings-heading p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.rankings-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.rankings-navigation a {
+  overflow-wrap: anywhere;
+  text-transform: none;
+}
+
+.ranking-event-cover {
+  margin-bottom: 18px;
+}

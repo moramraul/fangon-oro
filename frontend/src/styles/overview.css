@@ -302,3 +302,7 @@
     gap: 8px;
   }
 }
+
+.overview-event-cover {
+  flex: 0 0 100%;
+}

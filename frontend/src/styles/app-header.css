@@ -113,6 +113,19 @@
   letter-spacing: 0;
 }
 
+@media (max-width: 480px) {
+  .brand {
+    height: auto;
+    min-height: 76px;
+    flex-wrap: wrap;
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+  .header-navigation {
+    flex-wrap: wrap;
+  }
+}
+
 @media (max-width: 350px) {
   .brand {
     padding: 0 18px;

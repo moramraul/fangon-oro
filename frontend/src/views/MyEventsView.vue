@@ -2,11 +2,13 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { ApiError, request } from '../api'
 import { useAuthStore } from '../stores/auth'
+import EventCover from '../components/events/EventCover.vue'
 import '../styles/my-events.css'
 
 interface EventSummary {
   id: string
   name: string
+  image: string | null
   startDate: string | null
   endDate: string | null
   status: 'open' | 'closed' | 'draft'
@@ -126,6 +128,7 @@ onUnmounted(() => clearInterval(timer))
           <ul class="events-list">
             <li v-for="event in group.items" :key="event.id">
               <article class="event-card" :class="`event-card--${group.key}`">
+                <EventCover class="my-event-cover" :image="event.image" />
                 <span class="event-badge"
                   ><span aria-hidden="true">●</span>
                   {{ event.status === 'draft' ? 'En preparación' : group.label }}</span

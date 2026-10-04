@@ -58,6 +58,7 @@ onUnmounted(() => {
     ><a :href="authenticated ? '#/overview' : '#/login'">FANGÓN <span>DE ORO</span></a>
     <nav v-if="authenticated" class="header-navigation" aria-label="Navegación principal">
       <a href="#/overview">Home</a>
+      <a href="#/rankings">Clasificaciones</a>
       <div ref="accountMenu" class="account-menu" @focusout="closeOnFocusLeave">
         <button
           ref="avatarButton"

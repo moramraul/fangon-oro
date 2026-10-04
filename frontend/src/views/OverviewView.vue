@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { ApiError, request } from '../api'
 import { useAuthStore } from '../stores/auth'
+import EventCover from '../components/events/EventCover.vue'
 import '../styles/overview.css'
 
 interface Standing {
@@ -12,6 +13,7 @@ interface Standing {
   rank: number
 }
 interface EditionEvent {
+  image: string | null
   id: string
   name: string
   startDate: string
@@ -32,17 +34,11 @@ const auth = useAuthStore()
 const data = ref<Overview | null>(null)
 const loading = ref(true)
 const error = ref('')
-const expanded = ref(false)
-const results = ref<{ id: string; name: string; standings: Standing[] } | null>(null)
-const resultsLoading = ref(false)
-const resultsPanel = ref<HTMLElement | null>(null)
-const resultsError = ref('')
 const now = ref(Date.now())
 let offset = 0
 let timer: ReturnType<typeof setInterval> | undefined
 let refreshTimer: ReturnType<typeof setInterval> | undefined
 let refreshing = false
-let resultRequest = 0
 const yearFormat = new Intl.DateTimeFormat('en', { year: 'numeric', timeZone: 'Europe/Madrid' })
 const currentYear = computed(() => Number(yearFormat.format(now.value)))
 const groups = computed(() => {
@@ -112,38 +108,11 @@ async function load(silent = false) {
     refreshing = false
   }
 }
-async function showResults(event: EditionEvent) {
-  if (!auth.token) return
-  const requestId = ++resultRequest
-  results.value = { id: event.id, name: event.name, standings: [] }
-  resultsLoading.value = true
-  resultsError.value = ''
-  await nextTick()
-  resultsPanel.value?.focus()
-  resultsPanel.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  try {
-    const response = await request<{ id: string; name: string; standings: Standing[] }>(
-      `/overview/events/${encodeURIComponent(event.id)}/results`,
-      {},
-      auth.token,
-    )
-    if (requestId === resultRequest) results.value = response
-  } catch (cause) {
-    if (requestId === resultRequest) resultsError.value = message(cause)
-  } finally {
-    if (requestId === resultRequest) resultsLoading.value = false
-  }
-}
-function closeResults() {
-  resultRequest++
-  results.value = null
-}
 onMounted(() => {
   void load()
   timer = setInterval(() => {
     now.value = Date.now() + offset
     if (data.value && currentYear.value !== data.value.year) {
-      closeResults()
       void load(true)
     }
   }, 1000)
@@ -152,7 +121,6 @@ onMounted(() => {
 onUnmounted(() => {
   clearInterval(timer)
   clearInterval(refreshTimer)
-  resultRequest++
 })
 </script>
 
@@ -176,16 +144,9 @@ onUnmounted(() => {
         <section class="overview-panel" aria-labelledby="standings-title">
           <header class="overview-panel-heading">
             <h2 id="standings-title"><span aria-hidden="true">♛</span> Clasificación general</h2>
-            <button
-              v-if="data.standings.length"
-              class="overview-text-button"
-              type="button"
-              :aria-expanded="expanded"
-              aria-controls="full-standings"
-              @click="expanded = !expanded"
+            <a class="overview-text-button" href="#/rankings"
+              >Ver completa <span aria-hidden="true">›</span></a
             >
-              {{ expanded ? 'Ocultar' : 'Ver completa' }} <span aria-hidden="true">›</span>
-            </button>
           </header>
           <p class="overview-ranking-edition">Edición {{ data.rankingYear }} · puntos acumulados</p>
           <p v-if="data.rankingYear !== currentYear" class="overview-message">
@@ -213,13 +174,6 @@ onUnmounted(() => {
           <p v-else class="overview-message">
             Todavía no hay clasificación. Se actualizará cuando se cierre el primer evento.
           </p>
-          <ol v-if="expanded" id="full-standings" class="overview-ranking">
-            <li v-for="entry in data.standings" :key="entry.id">
-              <span class="overview-ranking-place">{{ entry.rank }}</span
-              ><span>{{ entry.name }}</span
-              ><strong>{{ entry.points }} <small>pts</small></strong>
-            </li>
-          </ol>
         </section>
         <section
           v-for="group in groups"
@@ -244,6 +198,7 @@ onUnmounted(() => {
           </p>
           <ul v-else class="overview-event-list">
             <li v-for="event in group.events" :key="event.id" class="overview-event">
+              <EventCover class="overview-event-cover" :image="event.image" />
               <div class="overview-event-date" aria-hidden="true">
                 <span>{{ date(event.startDate) }}</span
                 ><span>✦</span>
@@ -259,42 +214,17 @@ onUnmounted(() => {
                 :href="`#/events/${event.id}/vote`"
                 >{{ event.hasVoted ? 'Ver tus votos' : 'Votar' }}</a
               >
-              <button
+              <a
                 v-else-if="group.key === 'past'"
                 class="overview-button"
-                type="button"
-                @click="showResults(event)"
+                :href="`#/rankings/events/${encodeURIComponent(event.id)}`"
+                >Ver resultados</a
               >
-                Ver resultados
-              </button>
               <span v-else class="overview-event-label">{{
                 group.key === 'upcoming' ? 'Próximamente' : 'En curso'
               }}</span>
             </li>
           </ul>
-        </section>
-        <section
-          v-if="results"
-          ref="resultsPanel"
-          tabindex="-1"
-          class="overview-panel overview-results"
-          aria-labelledby="overview-results-title"
-          :aria-busy="resultsLoading"
-        >
-          <header class="overview-panel-heading">
-            <h2 id="overview-results-title">{{ results.name }}</h2>
-            <button type="button" class="overview-text-button" @click="closeResults">Cerrar</button>
-          </header>
-          <p v-if="resultsLoading" class="overview-message" role="status">Cargando resultados…</p>
-          <p v-else-if="resultsError" class="overview-error" role="alert">{{ resultsError }}</p>
-          <ol v-else-if="results.standings.length" class="overview-ranking">
-            <li v-for="entry in results.standings" :key="entry.id">
-              <span class="overview-ranking-place">{{ entry.rank }}</span
-              ><span>{{ entry.name }}</span
-              ><strong>{{ entry.points }} <small>pts</small></strong>
-            </li>
-          </ol>
-          <p v-else class="overview-message">No hay resultados para este evento.</p>
         </section>
         <p class="overview-calendar">
           Edición {{ currentYear }} · 1 de enero — 31 de diciembre<br />Fechas en horario de Madrid.

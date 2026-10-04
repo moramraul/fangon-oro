@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, watch } from 'vue'
+import { nextTick, onMounted, watch } from 'vue'
 import AppHeader from './components/layout/AppHeader.vue'
 import AppFooter from './components/layout/AppFooter.vue'
 import SessionState from './components/auth/SessionState.vue'
@@ -10,16 +10,21 @@ import ProfileEditView from './views/ProfileEditView.vue'
 import EventCreateView from './views/EventCreateView.vue'
 import VotingView from './views/VotingView.vue'
 import OverviewView from './views/OverviewView.vue'
+import RankingsView from './views/RankingsView.vue'
 import { useAuthStore } from './stores/auth'
 import { useHashRoute } from './composables/useHashRoute'
 import './style.css'
 const auth = useAuthStore()
 const route = useHashRoute()
-watch(route, () => auth.clearError())
+watch(route, async () => {
+  auth.clearError()
+  await nextTick()
+  window.scrollTo({ top: 0 })
+})
 watch([route, () => auth.user, () => auth.restoring], () => {
   if (auth.restoring) return
   if (
-    ['overview', 'profile', 'edit-profile', 'events', 'manage-events', 'vote'].includes(
+    ['overview', 'rankings', 'profile', 'edit-profile', 'events', 'manage-events', 'vote'].includes(
       route.value,
     ) &&
     !auth.user
@@ -36,6 +41,7 @@ onMounted(() => void auth.restore())
     <AppHeader :authenticated="Boolean(auth.user)" />
     <SessionState v-if="auth.restoring || auth.needsSessionRecovery" />
     <OverviewView v-else-if="(route === 'overview' || route === 'events') && auth.user" />
+    <RankingsView v-else-if="route === 'rankings' && auth.user" />
     <EventCreateView v-else-if="route === 'manage-events' && auth.user?.role === 'ADMIN'" />
     <VotingView v-else-if="route === 'vote' && auth.user" />
     <ProfileEditView v-else-if="route === 'edit-profile' && auth.user" :user="auth.user" />

@@ -197,3 +197,8 @@
     padding: 16px;
   }
 }
+
+.my-event-cover,
+.voting-event-cover {
+  margin-bottom: 18px;
+}

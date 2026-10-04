@@ -2,12 +2,14 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { ApiError, request } from '../api'
 import { useAuthStore } from '../stores/auth'
+import EventCover from '../components/events/EventCover.vue'
 import '../styles/my-events.css'
 import '../styles/voting.css'
 
 interface EventDetail {
   id: string
   name: string
+  image: string | null
   description: string | null
   status: 'open' | 'closed' | 'draft'
   startDate: string | null
@@ -123,6 +125,7 @@ onUnmounted(() => {
 <template>
   <section class="my-events voting" aria-labelledby="voting-title" :aria-busy="loading || saving">
     <a class="events-back" href="#/overview">← Volver a la general</a>
+    <EventCover v-if="event" class="voting-event-cover" :image="event.image" />
     <header class="events-heading">
       <span class="events-eyebrow">TU VOZ EN LOS PREMIOS</span>
       <h1 id="voting-title">{{ event?.name ?? 'Votación' }}</h1>
