@@ -1,0 +1,107 @@
+.pending-users {
+  margin-top: 30px;
+  padding: 20px;
+  border: 1px solid #454133;
+  border-radius: 12px;
+  background: #ffffff03;
+}
+
+.pending-users-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pending-users-heading h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.pending-users-count {
+  padding: 4px 9px;
+  border-radius: 20px;
+  background: #d9b66515;
+  color: var(--gold);
+  font-size: 12px;
+}
+
+.pending-users-list {
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pending-user {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 0;
+  border-bottom: 1px solid #ffffff12;
+}
+
+.pending-user:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.pending-user-details {
+  display: grid;
+  flex: 1 1 150px;
+  min-width: 0;
+  gap: 5px;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+
+.pending-user-details span,
+.pending-users-message {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.pending-users-button {
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--gold);
+  font-size: 13px;
+}
+
+.pending-users-button:hover:not(:disabled) {
+  background: #d9b66515;
+}
+
+.pending-users-button:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 4px;
+}
+
+.pending-users-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.pending-users-error {
+  width: 100%;
+  margin: 12px 0 0;
+  color: #ffb4ab;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.pending-users-success {
+  margin: 12px 0 0;
+  color: var(--gold);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.pending-users-success:empty {
+  margin: 0;
+}

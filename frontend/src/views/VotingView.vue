@@ -100,6 +100,7 @@ async function submit() {
       },
       auth.token,
     )
+    event.value = await request<EventDetail>(`/events/${eventId()}`, {}, auth.token)
   } catch (cause) {
     handleError(cause)
   } finally {
@@ -121,7 +122,7 @@ onUnmounted(() => {
 
 <template>
   <section class="my-events voting" aria-labelledby="voting-title" :aria-busy="loading || saving">
-    <a class="events-back" href="#/events">← Volver a mis eventos</a>
+    <a class="events-back" href="#/overview">← Volver a la general</a>
     <header class="events-heading">
       <span class="events-eyebrow">TU VOZ EN LOS PREMIOS</span>
       <h1 id="voting-title">{{ event?.name ?? 'Votación' }}</h1>

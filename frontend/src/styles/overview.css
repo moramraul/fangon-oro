@@ -1,0 +1,304 @@
+.overview {
+  background: #0d0c09;
+}
+.overview-hero {
+  position: relative;
+  min-height: 540px;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+}
+.overview-art {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(0deg, #0d0c09 0%, transparent 35%),
+    url('/images/fangon-edition.png') center 33% / auto 1250px no-repeat;
+}
+.overview-hero-caption {
+  position: relative;
+  width: 100%;
+  padding: 180px 24px 24px;
+  background: linear-gradient(0deg, #0d0c09 10%, transparent);
+  text-align: center;
+}
+.overview-edition {
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 4px;
+}
+.overview-hero h1 {
+  font-size: 38px;
+  color: #f3d68d;
+  text-shadow: 0 2px 15px #000;
+}
+.overview-hero p {
+  font-size: 12px;
+  color: #ccc2aa;
+}
+.overview-content {
+  padding: 0 16px 24px;
+  position: relative;
+}
+.overview-panel {
+  margin-bottom: 16px;
+  padding: 17px 14px;
+  border: 1px solid #96702f;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #25201755, #11100d);
+  box-shadow: inset 0 1px #f6d99422;
+}
+.overview-panel-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid #d9b66518;
+  padding-bottom: 12px;
+}
+.overview-panel h2 {
+  flex: 1;
+  margin: 0;
+  font-family: 'Playfair Display', Georgia, serif;
+  color: #efd08a;
+  font-size: 19px;
+  font-weight: 500;
+}
+.overview-panel h2 > span {
+  margin-right: 5px;
+  font-size: 24px;
+}
+.overview-text-button {
+  flex-shrink: 0;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  color: var(--gold);
+  font-size: 11px;
+}
+.overview-ranking-edition {
+  color: var(--muted);
+  font-size: 10px;
+  margin: 12px 0 0;
+  letter-spacing: 1px;
+}
+.overview-podium {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 26px 0 6px;
+}
+.overview-medalist {
+  min-width: 0;
+  flex: 1;
+  text-align: center;
+}
+.overview-medal {
+  position: relative;
+  width: 76px;
+  height: 76px;
+  margin: 0 auto 18px;
+  border: 3px solid #babdc1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 20%, #777c82, #1b1c1e);
+  box-shadow:
+    0 0 0 5px #babdc114,
+    0 0 25px #000;
+  display: grid;
+  place-items: center;
+}
+.overview-medalist--1 .overview-medal {
+  width: 96px;
+  height: 96px;
+  border-color: #f5d479;
+  background: radial-gradient(circle at 30% 20%, #b88b35, #31250e);
+  box-shadow:
+    0 0 0 5px #d9b66522,
+    0 0 30px #d9b66520;
+}
+.overview-medalist--3 .overview-medal {
+  border-color: #b87850;
+  background: radial-gradient(circle at 30% 20%, #955f3e, #281a13);
+}
+.overview-medal img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.overview-initial {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 32px;
+  color: #efeadc;
+}
+.overview-rank {
+  position: absolute;
+  bottom: -12px;
+  left: calc(50% - 14px);
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #16120a;
+  background: #babdc1;
+  font-weight: 700;
+}
+.overview-medalist--1 .overview-rank {
+  background: #efc55e;
+}
+.overview-medalist--3 .overview-rank {
+  background: #be8057;
+}
+.overview-medalist h3 {
+  font-size: 13px;
+  margin: 0 0 5px;
+  overflow-wrap: anywhere;
+}
+.overview-medalist p {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0;
+}
+.overview-medalist--1 h3,
+.overview-medalist--1 p {
+  color: #f3d68d;
+}
+.overview-ranking,
+.overview-event-list {
+  padding: 0;
+  margin: 14px 0 0;
+  list-style: none;
+}
+.overview-ranking li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #ffffff0d;
+  font-size: 13px;
+}
+.overview-ranking li > span:nth-child(2) {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.overview-ranking-place {
+  min-width: 24px;
+  color: var(--gold);
+}
+.overview-ranking strong {
+  flex-shrink: 0;
+  color: var(--gold);
+}
+.overview-ranking small {
+  font-weight: 400;
+  color: var(--muted);
+}
+.overview-event-count {
+  color: var(--gold);
+  font-size: 13px;
+}
+.overview-event {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid #ffffff0d;
+}
+.overview-event:last-child,
+.overview-ranking li:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.overview-event-date {
+  width: 60px;
+  min-height: 65px;
+  border: 1px solid #d9b66535;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at top, #604c2255, #15110b);
+  color: var(--gold);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+.overview-event-date > span:last-child {
+  font-size: 22px;
+}
+.overview-event-info {
+  flex: 1 1 120px;
+  min-width: 0;
+}
+.overview-event-info h3 {
+  font-size: 14px;
+  line-height: 1.4;
+  margin: 0 0 7px;
+  overflow-wrap: anywhere;
+}
+.overview-event-info p {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 4px 0;
+}
+.overview-button {
+  padding: 10px 14px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--gold);
+  border-radius: 7px;
+  background: transparent;
+  color: #e6c577;
+  text-decoration: none;
+  font-size: 11px;
+}
+.overview-button--gold {
+  background: linear-gradient(#f4d784, #b87923);
+  color: #1c1306;
+  font-weight: 700;
+  text-transform: uppercase;
+  min-width: 88px;
+}
+.overview-event-label {
+  color: var(--gold);
+  font-size: 10px;
+}
+.overview-message {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.overview-error {
+  color: #ffb4ab;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.overview-calendar {
+  color: #8f8879;
+  text-align: center;
+  font-size: 10px;
+  line-height: 1.9;
+  margin: 24px 0 0;
+}
+@media (max-width: 370px) {
+  .overview-hero {
+    min-height: 440px;
+  }
+  .overview-panel h2 {
+    font-size: 16px;
+  }
+  .overview-medal {
+    width: 60px;
+    height: 60px;
+  }
+  .overview-medalist--1 .overview-medal {
+    width: 76px;
+    height: 76px;
+  }
+  .overview-podium {
+    gap: 8px;
+  }
+}

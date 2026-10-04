@@ -1,6 +1,15 @@
 import { onMounted, onUnmounted, ref } from 'vue'
-type Route = 'login' | 'register' | 'profile' | 'edit-profile' | 'events' | 'manage-events' | 'vote'
+type Route =
+  | 'login'
+  | 'register'
+  | 'overview'
+  | 'profile'
+  | 'edit-profile'
+  | 'events'
+  | 'manage-events'
+  | 'vote'
 export function readRoute(hash = location.hash): Route {
+  if (hash === '#/overview' || hash === '#/') return 'overview'
   if (/^#\/events\/[^/]+\/vote$/.test(hash)) return 'vote'
   if (hash === '#/profile/edit') return 'edit-profile'
   if (hash === '#/events') return 'events'

@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { AuthCredentials } from '../../stores/auth'
-const props = defineProps<{ mode: 'login' | 'register'; busy: boolean; error: string }>()
+const props = defineProps<{
+  mode: 'login' | 'register'
+  busy: boolean
+  error: string
+  success?: string
+}>()
 const emit = defineEmits<{ submit: [credentials: AuthCredentials] }>()
 const registering = computed(() => props.mode === 'register')
 const name = ref('')
@@ -82,6 +87,7 @@ function submit() {
       </div>
     </div>
     <p v-if="error" class="error" role="alert">{{ error }}</p>
+    <p v-if="success" role="status">{{ success }}</p>
     <button class="primary" type="submit" :disabled="busy">
       {{ busy ? 'Un momento…' : registering ? 'Crear mi cuenta' : 'Entrar'
       }}<span aria-hidden="true">↗</span>

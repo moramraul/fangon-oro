@@ -30,9 +30,103 @@
   color: var(--muted);
 }
 
+.header-navigation {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.account-menu {
+  position: relative;
+}
+
+.avatar-button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--gold);
+  border-radius: 50%;
+  background: #282119;
+  color: var(--gold);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.avatar-button img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.account-options {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 100;
+  min-width: 155px;
+  padding: 6px;
+  border: 1px solid #ffffff20;
+  border-radius: 12px;
+  background: #211c18;
+  box-shadow: 0 12px 30px #00000055;
+}
+
+.header-navigation .account-options a,
+.account-options button {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 12px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--gold);
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 0;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.account-options a:hover,
+.account-options button:hover {
+  background: #ffffff0c;
+}
+
+.avatar-button:focus-visible,
+.account-options a:focus-visible,
+.account-options button:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+
+.header-navigation a {
+  color: var(--gold);
+  font-size: 10px;
+  letter-spacing: 0;
+}
+
 @media (max-width: 350px) {
   .brand {
     padding: 0 18px;
+    gap: 8px;
+  }
+  .brand > a {
+    font-size: 11px;
+    letter-spacing: 1px;
+  }
+  .brand-mark {
+    font-size: 24px;
+  }
+  .header-navigation {
+    gap: 8px;
   }
   .edition {
     display: none;

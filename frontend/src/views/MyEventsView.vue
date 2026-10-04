@@ -11,6 +11,7 @@ interface EventSummary {
   endDate: string | null
   status: 'open' | 'closed' | 'draft'
   participantCount: number
+  hasVoted: boolean
 }
 
 const auth = useAuthStore()
@@ -158,13 +159,13 @@ onUnmounted(() => clearInterval(timer))
                   v-if="group.key === 'active'"
                   class="event-vote-link"
                   :href="`#/events/${event.id}/vote`"
-                  >Entrar a votar →</a
+                  >{{ event.hasVoted ? 'Ver tus votos' : 'Entrar a votar' }} →</a
                 >
                 <a
                   v-else-if="group.key === 'closed'"
                   class="event-vote-link"
                   :href="`#/events/${event.id}/vote`"
-                  >Ver mi voto →</a
+                  >Ver tus votos →</a
                 >
               </article>
             </li>

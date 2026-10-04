@@ -15,9 +15,11 @@ export const useAuthStore = defineStore('auth', () => {
   const busy = ref(false)
   const restoring = ref(true)
   const error = ref('')
+  const success = ref('')
   const needsSessionRecovery = computed(() => Boolean(token.value && !user.value))
   function clearError() {
     error.value = ''
+    success.value = ''
   }
   function logout() {
     token.value = null
@@ -31,19 +33,30 @@ export const useAuthStore = defineStore('auth', () => {
     clearError()
     busy.value = true
     try {
+      if (mode === 'register') {
+        const result = await request<{ message: string }>('/auth/register', {
+          method: 'POST',
+          body: JSON.stringify({
+            email: credentials.email.trim().toLowerCase(),
+            password: credentials.password,
+            name: credentials.name?.trim(),
+          }),
+        })
+        success.value = result.message
+        return
+      }
       const result = await request<{ accessToken: string }>('/auth/' + mode, {
         method: 'POST',
         body: JSON.stringify({
           email: credentials.email.trim().toLowerCase(),
           password: credentials.password,
-          ...(mode === 'register' ? { name: credentials.name?.trim() } : {}),
         }),
       })
       const profile = await request<User>('/auth/me', {}, result.accessToken)
       token.value = result.accessToken
       localStorage.setItem('fangon.session', result.accessToken)
       user.value = profile
-      location.hash = '/profile'
+      location.hash = '/overview'
     } catch (cause) {
       error.value =
         cause instanceof Error ? cause.message : 'No hemos podido completar la operación.'
@@ -57,8 +70,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       if (token.value) {
         user.value = await request<User>('/auth/me', {}, token.value)
-        if (['login', 'register'].includes(readRoute()))
-          location.hash = '/profile'
+        if (['login', 'register'].includes(readRoute())) location.hash = '/overview'
       }
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 401) logout()
@@ -75,6 +87,7 @@ export const useAuthStore = defineStore('auth', () => {
     busy,
     restoring,
     error,
+    success,
     needsSessionRecovery,
     clearError,
     logout,
