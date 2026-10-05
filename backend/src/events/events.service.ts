@@ -13,6 +13,7 @@ import { UserDocument } from '../users/schemas/user.schema';
 import { UsersService } from '../users/users.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateEventDto, UpdateEventDto } from './dto/event.dto';
+import { Vote } from '../votes/schemas/vote.schema';
 import {
   Event,
   EventDocument,
@@ -46,6 +47,44 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
         { $set: { status: EventStatus.CLOSED } },
       )
       .exec();
+    const completed = await this.eventModel
+      .aggregate<{ _id: Types.ObjectId }>([
+        {
+          $match: {
+            status: EventStatus.OPEN,
+            startDate: { $lte: new Date() },
+            'participants.0': { $exists: true },
+          },
+        },
+        {
+          $lookup: {
+            from: this.voteModel.collection.name,
+            localField: '_id',
+            foreignField: 'eventId',
+            pipeline: [{ $project: { _id: 0, voterId: 1 } }],
+            as: 'ballots',
+          },
+        },
+        {
+          $match: {
+            $expr: { $setIsSubset: ['$participants', '$ballots.voterId'] },
+          },
+        },
+        { $project: { _id: 1 } },
+      ])
+      .exec();
+    if (completed.length) {
+      // Participants cannot change after the event starts, and votes are immutable.
+      await this.eventModel
+        .updateMany(
+          {
+            _id: { $in: completed.map((event) => event._id) },
+            status: EventStatus.OPEN,
+          },
+          { $set: { status: EventStatus.CLOSED } },
+        )
+        .exec();
+    }
   }
 
   private validateDates(startDate: Date, endDate: Date) {
@@ -61,6 +100,7 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
     @InjectModel(Event.name) private readonly eventModel: Model<Event>,
     private readonly usersService: UsersService,
     private readonly notificationsService: NotificationsService,
+    @InjectModel(Vote.name) private readonly voteModel: Model<Vote>,
   ) {}
 
   async listMine(user: UserDocument) {
@@ -69,7 +109,15 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
       .find({ participants: user._id })
       .sort({ startDate: -1 })
       .exec();
-    return events.map((event) => this.summary(event));
+    const votedEventIds = new Set(
+      (
+        await this.voteModel.distinct('eventId', { voterId: user._id }).exec()
+      ).map((id: Types.ObjectId) => id.toHexString()),
+    );
+    return events.map((event) => ({
+      ...this.summary(event),
+      hasVoted: votedEventIds.has(event._id.toHexString()),
+    }));
   }
 
   async listAll() {
@@ -98,6 +146,7 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
     );
     const event = await this.eventModel.create({
       name: dto.name,
+      image: dto.image,
       startDate,
       endDate,
       description: dto.description,
@@ -116,11 +165,13 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
     const current = await this.findEvent(id);
     const changes: {
       name?: string;
+      image?: string;
       startDate?: Date;
       endDate?: Date;
       description?: string;
       status?: EventStatus;
     } = {};
+    if (dto.image !== undefined) changes.image = dto.image;
     if (dto.name !== undefined) changes.name = dto.name;
     if (dto.startDate !== undefined) {
       if (
@@ -262,6 +313,7 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
     return {
       id: event._id.toHexString(),
       name: event.name,
+      image: event.image ?? null,
       startDate: startDate?.toISOString() ?? null,
       endDate: event.endDate?.toISOString() ?? null,
       status,

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { EventsModule } from '../events/events.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Event, EventSchema } from '../events/schemas/event.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
@@ -9,6 +10,7 @@ import { RankingsService } from './rankings.service';
 
 @Module({
   imports: [
+    EventsModule,
     VotesModule,
     MongooseModule.forFeature([
       { name: Vote.name, schema: VoteSchema },

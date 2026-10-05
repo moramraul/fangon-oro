@@ -1,22 +1,34 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
 import { registerDto } from './dto/register.dto';
 import { UserDocument } from '../users/schemas/user.schema';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { GoogleTokenService } from './google-token.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
+    private readonly googleTokens: GoogleTokenService,
   ) {}
 
   async register(registerDto: registerDto) {
     const user = await this.usersService.create(registerDto);
 
-    return this.generateToken(user);
+    return {
+      id: user._id.toHexString(),
+      isActive: user.isActive,
+      message:
+        'Cuenta creada. Un administrador debe activarla antes de iniciar sesión.',
+    };
   }
 
   async login(loginDto: LoginDto) {
@@ -37,6 +49,23 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    if (user.isActive !== true) {
+      throw new ForbiddenException(
+        'Cuenta desactivada. Contacta con un administrador para activarla.',
+      );
+    }
+
+    return this.generateToken(user);
+  }
+
+  async googleLogin(credential: string) {
+    const identity = await this.googleTokens.verify(credential);
+    const user = await this.usersService.findOrCreateGoogleUser(identity);
+    if (user.isActive !== true) {
+      throw new ForbiddenException(
+        'Cuenta desactivada. Contacta con un administrador para activarla.',
+      );
+    }
     return this.generateToken(user);
   }
 
@@ -50,5 +79,19 @@ export class AuthService {
     return {
       accessToken: await this.jwtService.signAsync(payload),
     };
+  }
+
+  updateProfile(id: string, profile: UpdateProfileDto) {
+    return this.usersService.updateProfile(id, profile);
+  }
+
+  hasPassword(id: string) {
+    return this.usersService.hasPassword(id);
+  }
+  acknowledgePasswordPrompt(id: string) {
+    return this.usersService.acknowledgePasswordPrompt(id);
+  }
+  createPassword(id: string, password: string) {
+    return this.usersService.createPassword(id, password);
   }
 }

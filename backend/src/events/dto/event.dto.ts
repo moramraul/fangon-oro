@@ -25,6 +25,12 @@ export class UpdateEventDto {
   name?: string;
 
   @ValidateIf((_object: unknown, value: unknown) => value !== undefined)
+  @IsString()
+  @MaxLength(90000)
+  @Matches(/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/)
+  image?: string;
+
+  @ValidateIf((_object: unknown, value: unknown) => value !== undefined)
   @IsISO8601({ strict: true })
   @Matches(/T.*(?:Z|[+-]\d{2}:\d{2})$/)
   startDate?: string;
@@ -51,6 +57,11 @@ export class CreateEventDto {
   @IsNotEmpty()
   @MaxLength(100)
   name!: string;
+
+  @IsString()
+  @MaxLength(90000)
+  @Matches(/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/)
+  image!: string;
 
   @IsISO8601({ strict: true })
   @Matches(/T.*(?:Z|[+-]\d{2}:\d{2})$/)

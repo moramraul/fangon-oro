@@ -5,6 +5,9 @@ import { Event, EventSchema } from '../events/schemas/event.schema';
 import { VotesController } from './votes.controller';
 import { VotesService } from './votes.service';
 import { Vote, VoteSchema } from './schemas/vote.schema';
+import { User, UserSchema } from '../users/schemas/user.schema';
+import { OverviewController } from './overview.controller';
+import { OverviewService } from './overview.service';
 
 @Module({
   imports: [
@@ -12,10 +15,11 @@ import { Vote, VoteSchema } from './schemas/vote.schema';
     MongooseModule.forFeature([
       { name: Vote.name, schema: VoteSchema },
       { name: Event.name, schema: EventSchema },
+      { name: User.name, schema: UserSchema },
     ]),
   ],
-  controllers: [VotesController],
-  providers: [VotesService],
+  controllers: [VotesController, OverviewController],
+  providers: [VotesService, OverviewService],
   exports: [VotesService],
 })
 export class VotesModule {}

@@ -5,10 +5,14 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { AdminEventsController, EventsController } from './events.controller';
 import { EventsService } from './events.service';
 import { Event, EventSchema } from './schemas/event.schema';
+import { Vote, VoteSchema } from '../votes/schemas/vote.schema';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Event.name, schema: EventSchema }]),
+    MongooseModule.forFeature([
+      { name: Event.name, schema: EventSchema },
+      { name: Vote.name, schema: VoteSchema },
+    ]),
     UsersModule,
     NotificationsModule,
   ],

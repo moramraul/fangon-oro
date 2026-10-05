@@ -9,6 +9,7 @@ import { UsersService } from '../users/users.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EventsService } from './events.service';
 import { Event, EventStatus } from './schemas/event.schema';
+import { Vote } from '../votes/schemas/vote.schema';
 
 describe('EventsService permissions and state rules', () => {
   const userId = new Types.ObjectId();
@@ -26,6 +27,7 @@ describe('EventsService permissions and state rules', () => {
     updatedAt: new Date(),
   };
   const model = {
+    aggregate: jest.fn(),
     updateMany: jest.fn(),
     findById: jest.fn(),
     findOneAndUpdate: jest.fn(),
@@ -34,10 +36,13 @@ describe('EventsService permissions and state rules', () => {
   };
   const users = { findSummariesByIds: jest.fn() };
   const notifications = { eventIncluded: jest.fn() };
+  const votes = { distinct: jest.fn(), collection: { name: 'votes' } };
   let service: EventsService;
 
   beforeEach(() => {
     jest.resetAllMocks();
+    model.aggregate.mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
+    votes.distinct.mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
     model.updateMany.mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
     model.findById.mockReturnValue({
       exec: jest.fn().mockResolvedValue(event),
@@ -49,6 +54,7 @@ describe('EventsService permissions and state rules', () => {
       model as unknown as Model<Event>,
       users as unknown as UsersService,
       notifications as unknown as NotificationsService,
+      votes as unknown as Model<Vote>,
     );
   });
 
@@ -77,6 +83,60 @@ describe('EventsService permissions and state rules', () => {
     model.find.mockReturnValue({ sort: jest.fn().mockReturnValue({ exec }) });
     await service.listMine({ ...user, role: 'ADMIN' } as UserDocument);
     expect(model.find).toHaveBeenCalledWith({ participants: userId });
+  });
+
+  it('repairs open events with ballots from every participant before listing them', async () => {
+    model.aggregate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue([{ _id: eventId }]),
+    });
+    model.find.mockReturnValue({
+      sort: jest.fn().mockReturnValue({
+        exec: jest
+          .fn()
+          .mockResolvedValue([{ ...event, status: EventStatus.CLOSED }]),
+      }),
+    });
+    const result = await service.listMine(user);
+    expect(model.aggregate).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        {
+          $match: {
+            status: EventStatus.OPEN,
+            startDate: { $lte: expect.any(Date) as Date },
+            'participants.0': { $exists: true },
+          },
+        },
+        {
+          $match: {
+            $expr: { $setIsSubset: ['$participants', '$ballots.voterId'] },
+          },
+        },
+      ]),
+    );
+    expect(model.updateMany).toHaveBeenLastCalledWith(
+      { _id: { $in: [eventId] }, status: EventStatus.OPEN },
+      { $set: { status: EventStatus.CLOSED } },
+    );
+    expect(result[0].status).toBe('closed');
+  });
+
+  it('keeps events open when participation is incomplete', async () => {
+    await service.closeExpired();
+    expect(model.updateMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('marks personal events when the current user has already voted', async () => {
+    model.find.mockReturnValue({
+      sort: jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue([event]) }),
+    });
+    expect((await service.listMine(user))[0].hasVoted).toBe(false);
+    votes.distinct.mockReturnValue({
+      exec: jest.fn().mockResolvedValue([eventId]),
+    });
+    expect((await service.listMine(user))[0].hasVoted).toBe(true);
+    expect(votes.distinct).toHaveBeenCalledWith('eventId', { voterId: userId });
   });
 
   it('lists legacy events alongside current events without missing-date errors', async () => {
@@ -111,6 +171,7 @@ describe('EventsService permissions and state rules', () => {
       service.create(
         {
           name: 'Test',
+          image: 'data:image/jpeg;base64,/9j/2Q==',
           startDate: '2099-10-01T12:00:00Z',
           endDate: '2099-10-02T12:00:00Z',
           participantIds: [userId.toHexString()],
@@ -191,11 +252,15 @@ describe('EventsService permissions and state rules', () => {
     await service.create(
       {
         name: 'Test',
+        image: 'data:image/jpeg;base64,/9j/2Q==',
         startDate: event.startDate.toISOString(),
         endDate: event.endDate.toISOString(),
         participantIds: [userId.toHexString()],
       },
       user,
+    );
+    expect(model.create).toHaveBeenCalledWith(
+      expect.objectContaining({ image: 'data:image/jpeg;base64,/9j/2Q==' }),
     );
     expect(notifications.eventIncluded).toHaveBeenCalledWith(event, [userId]);
     expect(model.create.mock.invocationCallOrder[0]).toBeLessThan(
@@ -247,6 +312,7 @@ describe('EventsService permissions and state rules', () => {
       service.create(
         {
           name: 'Test',
+          image: 'data:image/jpeg;base64,/9j/2Q==',
           startDate: event.startDate.toISOString(),
           endDate: event.endDate.toISOString(),
           participantIds: [userId.toHexString()],

@@ -16,6 +16,7 @@ describe('Event input validation', () => {
       await expect(
         validateCreate({
           name: 'Test',
+          image: 'data:image/jpeg;base64,/9j/2Q==',
           startDate: '2026-10-01T12:00:00Z',
           endDate: '2026-10-02T12:00:00Z',
           status,
@@ -24,10 +25,29 @@ describe('Event input validation', () => {
     },
   );
 
+  it.each([
+    undefined,
+    null,
+    '',
+    'https://example.com/photo.jpg',
+    'data:image/svg+xml;base64,PHN2Zz4=',
+    'data:image/jpeg;base64,' + 'A'.repeat(90000),
+  ])('rejects missing or invalid image %p', async (image) => {
+    await expect(
+      validateCreate({
+        name: 'Test',
+        startDate: '2026-10-01T12:00:00Z',
+        endDate: '2026-10-02T12:00:00Z',
+        image,
+      }),
+    ).rejects.toThrow();
+  });
+
   it('rejects draft status', async () => {
     await expect(
       validateCreate({
         name: 'Test',
+        image: 'data:image/jpeg;base64,/9j/2Q==',
         startDate: '2026-10-01T12:00:00Z',
         endDate: '2026-10-02T12:00:00Z',
         status: 'DRAFT',
@@ -39,6 +59,7 @@ describe('Event input validation', () => {
     await expect(
       validateCreate({
         name: 'Test',
+        image: 'data:image/jpeg;base64,/9j/2Q==',
         startDate: '2026-10-01T12:00:00Z',
         endDate: '2026-10-02T12:00:00Z',
         createdBy: 'someone',
@@ -50,6 +71,7 @@ describe('Event input validation', () => {
     await expect(
       validateCreate({
         name: 'Test',
+        image: 'data:image/jpeg;base64,/9j/2Q==',
         startDate: '2026-10-01T12:00:00',
         endDate: '2026-10-02T12:00:00Z',
       }),
@@ -69,6 +91,7 @@ describe('Event input validation', () => {
     await expect(
       validateCreate({
         name: 'Test',
+        image: 'data:image/jpeg;base64,/9j/2Q==',
         startDate: '2026-10-01T12:00:00Z',
         endDate: '2026-10-02T12:00:00Z',
         participantIds: null,

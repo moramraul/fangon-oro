@@ -1,4 +1,5 @@
 import { pointsPipeline } from '../votes/points.pipeline';
+import { EventsService } from '../events/events.service';
 import { NotFoundException } from '@nestjs/common';
 import { Model, Types } from 'mongoose';
 import { Event, EventStatus } from '../events/schemas/event.schema';
@@ -16,28 +17,37 @@ describe('RankingsService', () => {
   const events = { distinct: jest.fn() };
   const users = { find: jest.fn() };
   const results = { results: jest.fn() };
+  const lifecycle = { closeExpired: jest.fn() };
+  const closedEventId = new Types.ObjectId();
   let service: RankingsService;
 
   beforeEach(() => {
     jest.resetAllMocks();
+    lifecycle.closeExpired.mockResolvedValue(undefined);
+    events.distinct.mockImplementation((field: string) => ({
+      exec: jest.fn().mockResolvedValue(field === '_id' ? [closedEventId] : []),
+    }));
     service = new RankingsService(
       votes as unknown as Model<Vote>,
       events as unknown as Model<Event>,
       users as unknown as Model<User>,
       results as unknown as VotesService,
+      lifecycle as unknown as EventsService,
     );
   });
 
-  it('sums all events and includes participants with zero votes only once', async () => {
+  it('sums closed events and includes participants with zero votes only once', async () => {
     votes.aggregate.mockReturnValue({
       exec: jest.fn().mockResolvedValue([
         { _id: a, points: 3 },
         { _id: b, points: 2 },
       ]),
     });
-    events.distinct.mockReturnValue({
-      exec: jest.fn().mockResolvedValue([a, b, c, a]),
-    });
+    events.distinct.mockImplementation((field: string) => ({
+      exec: jest
+        .fn()
+        .mockResolvedValue(field === '_id' ? [closedEventId] : [a, b, c, a]),
+    }));
     users.find.mockReturnValue({
       select: jest.fn().mockReturnValue({
         exec: jest.fn().mockResolvedValue([
@@ -61,7 +71,54 @@ describe('RankingsService', () => {
       { points: 2, position: 2, percentage: 40 },
       { points: 0, position: 3, percentage: 0 },
     ]);
-    expect(votes.aggregate).toHaveBeenCalledWith([...pointsPipeline()]);
+    expect(lifecycle.closeExpired).toHaveBeenCalled();
+    expect(events.distinct).toHaveBeenCalledWith('_id', {
+      status: EventStatus.CLOSED,
+    });
+    expect(votes.aggregate).toHaveBeenCalledWith([
+      { $match: { eventId: { $in: [closedEventId] } } },
+      ...pointsPipeline(),
+    ]);
+  });
+
+  it('does not count votes while no events are closed', async () => {
+    events.distinct.mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
+    votes.aggregate.mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
+    users.find.mockReturnValue({
+      select: jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }),
+    });
+    expect((await service.general()).totalPoints).toBe(0);
+    expect(votes.aggregate).toHaveBeenCalledWith([
+      { $match: { eventId: { $in: [] } } },
+      ...pointsPipeline(),
+    ]);
+  });
+
+  it('refreshes closed events after expiration processing on every query', async () => {
+    const closedIds: Types.ObjectId[] = [];
+    lifecycle.closeExpired.mockImplementation(() => {
+      closedIds.push(new Types.ObjectId());
+      return Promise.resolve();
+    });
+    events.distinct.mockImplementation((field: string) => ({
+      exec: jest.fn().mockResolvedValue(field === '_id' ? [...closedIds] : []),
+    }));
+    votes.aggregate.mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
+    users.find.mockReturnValue({
+      select: jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }),
+    });
+    await service.general();
+    await service.general();
+    expect(votes.aggregate.mock.calls[0][0][0]).toEqual({
+      $match: { eventId: { $in: [closedIds[0]] } },
+    });
+    expect(votes.aggregate.mock.calls[1][0][0]).toEqual({
+      $match: { eventId: { $in: closedIds } },
+    });
   });
 
   it('provides an event ranking from authorized results', async () => {

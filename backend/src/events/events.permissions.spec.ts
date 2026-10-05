@@ -16,6 +16,7 @@ describe('Administrative route permissions', () => {
     EventsController.prototype.remove,
     AdminEventsController.prototype.list,
     UsersController.prototype.findAll,
+    UsersController.prototype.updateActivation,
   ];
   /* eslint-enable @typescript-eslint/unbound-method */
 

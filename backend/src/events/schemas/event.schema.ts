@@ -16,6 +16,10 @@ export class Event {
   @Prop({ required: true, trim: true, maxlength: 100 })
   name!: string;
 
+  // Optional in storage so events created before images remain readable.
+  @Prop({ maxlength: 90000 })
+  image?: string;
+
   // Retained for events saved before startDate/endDate were introduced.
   @Prop()
   date?: Date;

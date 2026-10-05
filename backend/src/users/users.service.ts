@@ -1,4 +1,10 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { UpdateProfileDto } from '../auth/dto/update-profile.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import * as bcrypt from 'bcrypt';
 import { Model, Types } from 'mongoose';
@@ -28,20 +34,73 @@ export class UsersService {
       name,
       email,
       passwordHash,
+      isActive: false,
     });
 
     return user.save();
   }
 
+  async findOrCreateGoogleUser(identity: {
+    googleId: string;
+    email: string;
+    name: string;
+    authoritativeEmail: boolean;
+  }): Promise<UserDocument> {
+    const linked = await this.userModel
+      .findOne({ googleId: identity.googleId })
+      .exec();
+    if (linked) return linked;
+    const existing = await this.userModel
+      .findOne({ email: identity.email })
+      .exec();
+    if (existing) {
+      if (existing.googleId || !identity.authoritativeEmail) {
+        throw new UnauthorizedException(
+          'Inicia sesión con tu contraseña para esta cuenta.',
+        );
+      }
+      const linkedUser = await this.userModel
+        .findOneAndUpdate(
+          { _id: existing._id, googleId: { $exists: false } },
+          { $set: { googleId: identity.googleId } },
+          { new: true, runValidators: true },
+        )
+        .exec();
+      if (!linkedUser)
+        throw new ConflictException('Google account already linked');
+      return linkedUser;
+    }
+    try {
+      return await this.userModel.create({
+        name: identity.name,
+        email: identity.email,
+        googleId: identity.googleId,
+        isActive: false,
+      });
+    } catch (error: unknown) {
+      if ((error as { code?: number }).code === 11000) {
+        const concurrent = await this.userModel
+          .findOne({ googleId: identity.googleId })
+          .exec();
+        if (concurrent) return concurrent;
+        throw new ConflictException('Email already registered');
+      }
+      throw error;
+    }
+  }
+
   async findAll() {
     const users = await this.userModel
       .find()
-      .select('_id name')
+      .select('_id name email role isActive')
       .sort({ name: 1 })
       .exec();
     return users.map((user) => ({
       id: user._id.toHexString(),
       name: user.name,
+      email: user.email,
+      role: user.role,
+      isActive: user.isActive,
     }));
   }
   async findSummariesByIds(ids: Types.ObjectId[]) {
@@ -63,5 +122,89 @@ export class UsersService {
   }
   async findById(id: string) {
     return this.userModel.findById(id).exec();
+  }
+
+  async updateActivation(id: string, isActive: boolean) {
+    if (!Types.ObjectId.isValid(id))
+      throw new NotFoundException('User not found');
+    const user = await this.userModel
+      .findByIdAndUpdate(
+        id,
+        { $set: { isActive } },
+        { new: true, runValidators: true },
+      )
+      .exec();
+    if (!user) throw new NotFoundException('User not found');
+    return {
+      id: user._id.toHexString(),
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      isActive: user.isActive,
+    };
+  }
+
+  async hasPassword(id: string) {
+    return Boolean(
+      await this.userModel.exists({
+        _id: id,
+        passwordHash: { $type: 'string', $ne: '' },
+      }),
+    );
+  }
+
+  async acknowledgePasswordPrompt(id: string) {
+    const user = await this.userModel
+      .findByIdAndUpdate(
+        id,
+        { $set: { passwordPromptSeen: true } },
+        { new: true },
+      )
+      .exec();
+    if (!user) throw new NotFoundException('User not found');
+    return user;
+  }
+
+  async createPassword(id: string, password: string) {
+    if (Buffer.byteLength(password, 'utf8') > 72) {
+      throw new ConflictException('Password exceeds 72 bytes');
+    }
+    const passwordHash = await bcrypt.hash(password, 10);
+    const user = await this.userModel
+      .findOneAndUpdate(
+        {
+          _id: id,
+          isActive: true,
+          googleId: { $type: 'string' },
+          $or: [
+            { passwordHash: { $exists: false } },
+            { passwordHash: null },
+            { passwordHash: '' },
+          ],
+        },
+        { $set: { passwordHash, passwordPromptSeen: true } },
+        { new: true, runValidators: true },
+      )
+      .exec();
+    if (!user)
+      throw new ConflictException('Cannot create a password for this account');
+    return user;
+  }
+
+  async updateProfile(id: string, profile: UpdateProfileDto) {
+    const user = await this.userModel
+      .findByIdAndUpdate(
+        id,
+        {
+          $set: {
+            name: profile.name,
+            ...(profile.avatar !== undefined ? { avatar: profile.avatar } : {}),
+          },
+        },
+        { new: true, runValidators: true },
+      )
+      .exec();
+    if (!user) throw new NotFoundException('User not found');
+    return user;
   }
 }

@@ -3,7 +3,8 @@ import { pointsPipeline } from '../votes/points.pipeline';
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Event } from '../events/schemas/event.schema';
+import { Event, EventStatus } from '../events/schemas/event.schema';
+import { EventsService } from '../events/events.service';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { Vote } from '../votes/schemas/vote.schema';
 import { VotesService } from '../votes/votes.service';
@@ -16,6 +17,7 @@ export class RankingsService {
     @InjectModel(Event.name) private readonly eventModel: Model<Event>,
     @InjectModel(User.name) private readonly userModel: Model<User>,
     private readonly votesService: VotesService,
+    private readonly eventsService: EventsService,
   ) {}
 
   async forEvent(eventId: string, user: UserDocument): Promise<Ranking> {
@@ -27,8 +29,15 @@ export class RankingsService {
   }
 
   async general(): Promise<Ranking> {
+    await this.eventsService.closeExpired();
+    const closedEventIds = await this.eventModel
+      .distinct('_id', { status: EventStatus.CLOSED })
+      .exec();
     const counts = await this.voteModel
-      .aggregate<{ _id: Types.ObjectId } & Score>([...pointsPipeline()])
+      .aggregate<{ _id: Types.ObjectId } & Score>([
+        { $match: { eventId: { $in: closedEventIds } } },
+        ...pointsPipeline(),
+      ])
       .exec();
     const participantIds = await this.eventModel
       .distinct('participants')
