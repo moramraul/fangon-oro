@@ -81,7 +81,28 @@ export const useAuthStore = defineStore('auth', () => {
       if (!user.value && !token.value && location.hash === '#/profile') location.hash = '/login'
     }
   }
+  async function googleLogin(credential: string) {
+    if (busy.value) return
+    clearError()
+    busy.value = true
+    try {
+      const result = await request<{ accessToken: string }>('/auth/google', {
+        method: 'POST',
+        body: JSON.stringify({ credential }),
+      })
+      const profile = await request<User>('/auth/me', {}, result.accessToken)
+      token.value = result.accessToken
+      localStorage.setItem('fangon.session', result.accessToken)
+      user.value = profile
+      location.hash = '/overview'
+    } catch (cause) {
+      error.value = cause instanceof Error ? cause.message : 'No hemos podido entrar con Google.'
+    } finally {
+      busy.value = false
+    }
+  }
   return {
+    googleLogin,
     user,
     token,
     busy,

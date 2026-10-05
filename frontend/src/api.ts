@@ -1,5 +1,8 @@
 ﻿export interface User {
   id: string
+  hasPassword: boolean
+  hasGoogle: boolean
+  passwordPromptSeen: boolean
   name: string
   avatar?: string
   email: string
@@ -40,12 +43,17 @@ export async function request<T>(
     const messages: Record<number, string> = {
       400: 'Revisa los datos. La contraseña debe tener entre 8 y 100 caracteres.',
       401: 'El correo o la contraseña no son correctos. Vuelve a intentarlo.',
-      403:
-        path === '/auth/login'
-          ? 'Tu cuenta está desactivada. Contacta con un administrador para activarla.'
-          : 'No tienes permisos para realizar esta operación.',
+      403: ['/auth/login', '/auth/google'].includes(path)
+        ? 'Tu cuenta está desactivada. Contacta con un administrador para activarla.'
+        : 'No tienes permisos para realizar esta operación.',
       409: 'Ya existe una cuenta con este correo. Inicia sesión.',
       429: 'Demasiados intentos. Espera un momento antes de volver a probar.',
+    }
+    if (path === '/auth/google' && response.status === 401) {
+      throw new ApiError(
+        401,
+        'No hemos podido verificar tu cuenta de Google. Prueba de nuevo o entra con tu contraseña.',
+      )
     }
     throw new ApiError(
       response.status,

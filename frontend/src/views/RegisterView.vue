@@ -13,5 +13,6 @@ const auth = useAuthStore()
       :error="auth.error"
       :success="auth.success"
       @submit="auth.register"
+      @google="auth.googleLogin"
   /></AuthLayout>
 </template>

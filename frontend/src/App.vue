@@ -3,6 +3,7 @@ import { nextTick, onMounted, watch } from 'vue'
 import AppHeader from './components/layout/AppHeader.vue'
 import AppFooter from './components/layout/AppFooter.vue'
 import SessionState from './components/auth/SessionState.vue'
+import PasswordPrompt from './components/auth/PasswordPrompt.vue'
 import LoginView from './views/LoginView.vue'
 import RegisterView from './views/RegisterView.vue'
 import ProfileView from './views/ProfileView.vue'
@@ -49,6 +50,15 @@ onMounted(() => void auth.restore())
     <RegisterView v-else-if="route === 'register'" />
     <LoginView v-else />
     <AppFooter />
+    <PasswordPrompt
+      v-if="
+        !auth.restoring &&
+        auth.user?.hasGoogle &&
+        !auth.user.hasPassword &&
+        !auth.user.passwordPromptSeen &&
+        (route === 'overview' || route === 'events')
+      "
+    />
   </main>
 </template>
 

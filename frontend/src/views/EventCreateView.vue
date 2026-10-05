@@ -419,19 +419,20 @@ onMounted(() => {
       </fieldset>
       <p v-if="error" class="error" role="alert">{{ error }}</p>
       <button
+        v-if="editing"
         class="primary"
         type="submit"
         :disabled="busy || processing || loading || eventLoading || Boolean(loadError)"
       >
-        {{
-          editing
-            ? busy
-              ? 'Guardando cambios…'
-              : 'Guardar cambios'
-            : busy
-              ? 'Creando evento…'
-              : 'Crear evento'
-        }}
+        {{ busy ? 'Guardando cambios…' : 'Guardar cambios' }}
+      </button>
+      <button
+        v-else
+        class="primary"
+        type="submit"
+        :disabled="busy || processing || loading || eventLoading || Boolean(loadError)"
+      >
+        {{ busy ? 'Creando evento…' : 'Crear evento' }}
       </button>
       <button
         v-if="editing"

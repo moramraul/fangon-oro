@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { ApiError, request, type User } from '../api'
 import MemberCard from '../components/profile/MemberCard.vue'
+import CreatePassword from '../components/profile/CreatePassword.vue'
 import { useAuthStore } from '../stores/auth'
 import '../styles/profile.css'
 import '../styles/profile-edit.css'
@@ -19,6 +20,11 @@ const preview = computed(() => ({
   name: name.value.trim() || props.user.name,
   avatar: avatar.value,
 }))
+
+function removePhoto() {
+  avatar.value = ''
+  saved.value = false
+}
 
 async function selectPhoto(event: Event) {
   const input = event.target as HTMLInputElement
@@ -141,10 +147,7 @@ async function submit() {
           v-if="avatar"
           class="profile-edit-remove"
           type="button"
-          @click="
-            avatar = '';
-            saved = false
-          "
+          @click="removePhoto"
         >
           Quitar foto
         </button>
@@ -158,5 +161,6 @@ async function submit() {
         {{ busy ? 'Guardando…' : 'Guardar cambios' }}
       </button>
     </form>
+    <CreatePassword />
   </section>
 </template>

@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { AuthCredentials } from '../../stores/auth'
+import GoogleSignIn from './GoogleSignIn.vue'
 const props = defineProps<{
   mode: 'login' | 'register'
   busy: boolean
   error: string
   success?: string
 }>()
-const emit = defineEmits<{ submit: [credentials: AuthCredentials] }>()
+const emit = defineEmits<{ submit: [credentials: AuthCredentials]; google: [credential: string] }>()
 const registering = computed(() => props.mode === 'register')
 const name = ref('')
 const email = ref('')
@@ -93,6 +94,7 @@ function submit() {
       }}<span aria-hidden="true">↗</span>
     </button>
   </form>
+  <GoogleSignIn :busy="busy" @credential="emit('google', $event)" />
 </template>
 
 <style scoped src="../../styles/auth-form.css"></style>

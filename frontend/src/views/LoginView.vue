@@ -7,6 +7,11 @@ const auth = useAuthStore()
 
 <template>
   <AuthLayout mode="login"
-    ><AuthForm mode="login" :busy="auth.busy" :error="auth.error" @submit="auth.login"
+    ><AuthForm
+      mode="login"
+      :busy="auth.busy"
+      :error="auth.error"
+      @submit="auth.login"
+      @google="auth.googleLogin"
   /></AuthLayout>
 </template>
