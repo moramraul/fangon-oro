@@ -30,4 +30,14 @@ describe('JWT account activation', () => {
     users.findById.mockResolvedValue(user);
     await expect(strategy.validate(payload)).resolves.toBe(user);
   });
+
+  it('rejects sessions issued before a password reset', async () => {
+    users.findById.mockResolvedValue({ isActive: true, sessionVersion: 1 });
+    await expect(strategy.validate(payload)).rejects.toThrow(
+      UnauthorizedException,
+    );
+    await expect(
+      strategy.validate({ ...payload, sessionVersion: 1 }),
+    ).resolves.toBeDefined();
+  });
 });

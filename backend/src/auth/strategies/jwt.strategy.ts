@@ -22,9 +22,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     sub: string;
     email: string;
     role: 'USER' | 'ADMIN';
+    sessionVersion?: number;
   }) {
     const user = await this.usersService.findById(payload.sub);
-    if (!user || user.isActive !== true) {
+    if (
+      !user ||
+      user.isActive !== true ||
+      (payload.sessionVersion ?? 0) !== (user.sessionVersion ?? 0)
+    ) {
       throw new UnauthorizedException('Account inactive or not found');
     }
     return user;

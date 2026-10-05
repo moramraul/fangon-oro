@@ -87,6 +87,9 @@ function submit() {
         </button>
       </div>
     </div>
+    <p v-if="!registering">
+      <a href="#/forgot-password" style="color: #e9cb83">¿Olvidaste tu contraseña?</a>
+    </p>
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <p v-if="success" role="status">{{ success }}</p>
     <button class="primary" type="submit" :disabled="busy">

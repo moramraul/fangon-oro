@@ -2,6 +2,8 @@ import { onMounted, onUnmounted, ref } from 'vue'
 type Route =
   | 'login'
   | 'register'
+  | 'forgot-password'
+  | 'reset-password'
   | 'overview'
   | 'rankings'
   | 'profile'
@@ -10,6 +12,8 @@ type Route =
   | 'manage-events'
   | 'vote'
 export function readRoute(hash = location.hash): Route {
+  if (hash === '#/forgot-password') return 'forgot-password'
+  if (hash.startsWith('#/reset-password?')) return 'reset-password'
   if (hash === '#/overview' || hash === '#/') return 'overview'
   if (/^#\/events\/[^/]+\/vote$/.test(hash)) return 'vote'
   if (hash === '#/rankings' || /^#\/rankings\/events\/[^/]+$/.test(hash)) return 'rankings'

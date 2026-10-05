@@ -7,10 +7,16 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { GoogleTokenService } from './google-token.service';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { PasswordRecoveryService } from './password-recovery.service';
+import { MongooseModule } from '@nestjs/mongoose';
+import { User, UserSchema } from '../users/schemas/user.schema';
 
 @Module({
   imports: [
     ConfigModule,
+    NotificationsModule,
+    MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
 
     UsersModule,
 
@@ -26,6 +32,11 @@ import { GoogleTokenService } from './google-token.service';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, GoogleTokenService],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    GoogleTokenService,
+    PasswordRecoveryService,
+  ],
 })
 export class AuthModule {}

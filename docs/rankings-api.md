@@ -5,7 +5,7 @@ El modelo `Ranking` es un modelo de lectura calculado a partir de los votos. Cad
 Todas las rutas requieren JWT:
 
 - `GET /events/:eventId/ranking`: clasificación del evento; accesible a sus participantes y ADMIN, igual que sus resultados.
-- `GET /rankings/general`: clasificación general accesible a cualquier usuario autenticado. Suma los puntos de todos los eventos, abiertos y cerrados, incluyendo eventos en los que el usuario que consulta no participa. Solo expone nombres, identificadores y puntos totales; no revela votantes.
+- `GET /rankings/general`: clasificación general accesible a cualquier usuario autenticado. Suma los puntos únicamente de los eventos con `status: closed`, incluyendo eventos en los que el usuario que consulta no participa. Solo expone nombres, identificadores y puntos totales; no revela votantes.
 
 Respuesta: `{ scope, totalPoints, entries, leaderIds }`. La clasificación del evento también incluye `eventId` y `status`.
 
@@ -16,3 +16,5 @@ La general conserva los votos de usuarios eliminados con el nombre `Usuario elim
 Las consultas generales de votos, participantes y nombres son independientes: durante actividad concurrente no representan una instantánea transaccional única.
 
 El desempate se aplica en resultados, clasificaci?n del evento y clasificaci?n general: puntos totales, n?mero de votos de 5 (`fivePointVotes`) y n?mero de votos de 3 (`threePointVotes`), todos descendentes. Ambos contadores se incluyen en cada candidato o entrada. Si coinciden los tres valores, comparten posici?n y, si encabezan la clasificaci?n, aparecen juntos en `leaderIds`. El ID solo estabiliza el orden visual; no rompe el empate. Los votos antiguos de un punto no incrementan ninguno de estos contadores.
+
+El estado cerrado prevalece aunque falten votos o el evento siga dentro del rango de fechas, incluido un cierre directo desde MongoDB. El último voto cierra el evento dentro de la misma transacción; los vencimientos se procesan cada segundo y antes de consultar la general. Los resultados se calculan al consultar: no se guardan ni se acumulan por separado, evitando sumar dos veces un evento. Los participantes de eventos abiertos pueden aparecer con cero puntos, pero sus votos no contribuyen a la general.

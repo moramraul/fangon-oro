@@ -5,6 +5,7 @@ import AppFooter from './components/layout/AppFooter.vue'
 import SessionState from './components/auth/SessionState.vue'
 import PasswordPrompt from './components/auth/PasswordPrompt.vue'
 import LoginView from './views/LoginView.vue'
+import PasswordRecoveryView from './views/PasswordRecoveryView.vue'
 import RegisterView from './views/RegisterView.vue'
 import ProfileView from './views/ProfileView.vue'
 import ProfileEditView from './views/ProfileEditView.vue'
@@ -40,7 +41,11 @@ onMounted(() => void auth.restore())
 <template>
   <main class="app-shell">
     <AppHeader :authenticated="Boolean(auth.user)" />
-    <SessionState v-if="auth.restoring || auth.needsSessionRecovery" />
+    <PasswordRecoveryView
+      v-if="route === 'forgot-password' || route === 'reset-password'"
+      :reset="route === 'reset-password'"
+    />
+    <SessionState v-else-if="auth.restoring || auth.needsSessionRecovery" />
     <OverviewView v-else-if="(route === 'overview' || route === 'events') && auth.user" />
     <RankingsView v-else-if="route === 'rankings' && auth.user" />
     <EventCreateView v-else-if="route === 'manage-events' && auth.user?.role === 'ADMIN'" />

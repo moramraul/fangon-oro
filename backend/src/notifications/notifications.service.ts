@@ -4,6 +4,8 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { createTransport, Transporter } from 'nodemailer';
 import { User } from '../users/schemas/user.schema';
+import { escapeHtml, mailTemplate } from './mail-template';
+import { join } from 'node:path';
 
 export interface EventInvitation {
   _id: Types.ObjectId;
@@ -84,8 +86,22 @@ export class NotificationsService {
             try {
               await transport.sendMail({
                 from: this.from,
+                attachments: [
+                  {
+                    filename: 'emblema.png',
+                    path: join(__dirname, 'assets/emblema.png'),
+                    cid: 'fangon-emblema',
+                  },
+                ],
                 to: { name: recipient.name, address: recipient.email },
                 subject: `Has sido incluido en el evento: ${event.name.replace(/[\r\n]/g, ' ')}`,
+                html: mailTemplate(
+                  'Fangón, tienes una cita.',
+                  `<p>Hola ${escapeHtml(recipient.name)}, has sido incluido en un evento.</p><p style="color:#e8b954;font-family:Georgia,serif;font-size:26px">${escapeHtml(event.name)}</p><table role="presentation" width="100%" style="border:1px solid #6e542c;text-align:left"><tr><td style="padding:20px">Inicio: ${escapeHtml(dates.format(event.startDate))}<br><br>Fin: ${escapeHtml(dates.format(event.endDate))}<br><br>Horario: Europe/Madrid</td></tr></table><p>Prepárate, reúne tu criterio y afila el voto…</p><p style="color:#e8b954;font-weight:bold">A GUARREARLO TODO.</p>`,
+                  this.frontendUrl
+                    ? `${this.frontendUrl.split('#')[0]}#/events`
+                    : undefined,
+                ),
                 text: [
                   `Hola ${recipient.name},`,
                   '',
@@ -100,9 +116,25 @@ export class NotificationsService {
                     : 'Accede a la aplicación para consultar el evento y votar.',
                 ].join('\n'),
               });
-            } catch {
+            } catch (error: unknown) {
+              const smtpError = error as {
+                code?: unknown;
+                responseCode?: unknown;
+                command?: unknown;
+              } | null;
+              const code = String(smtpError?.code ?? 'UNKNOWN');
+              const command = String(smtpError?.command ?? 'UNKNOWN');
+              const responseCode = smtpError?.responseCode;
+              const diagnostics = [
+                `code=${/^[A-Z0-9_]+$/.test(code) ? code : 'UNKNOWN'}`,
+                `command=${/^[A-Z0-9 _-]+$/.test(command) ? command : 'UNKNOWN'}`,
+                ...(typeof responseCode === 'number' &&
+                Number.isInteger(responseCode)
+                  ? [`responseCode=${responseCode}`]
+                  : []),
+              ].join(' ');
               this.logger.error(
-                `Event inclusion email failed: event=${event._id.toHexString()} user=${recipient._id.toHexString()}`,
+                `Event inclusion email failed: event=${event._id.toHexString()} user=${recipient._id.toHexString()} ${diagnostics}`,
               );
             }
           }),
@@ -112,6 +144,32 @@ export class NotificationsService {
       this.logger.error(
         `Event inclusion notifications failed: event=${event._id.toHexString()}`,
       );
+    }
+  }
+  async passwordRecovery(user: { name: string; email: string }, url: string) {
+    if (!this.transport) return;
+    try {
+      await this.transport.sendMail({
+        from: this.from,
+        attachments: [
+          {
+            filename: 'emblema.png',
+            path: join(__dirname, 'assets/emblema.png'),
+            cid: 'fangon-emblema',
+          },
+        ],
+        to: { name: user.name, address: user.email },
+        subject: 'Restablece tu contraseña · Fangón de Oro',
+        text: `Hola ${user.name},\n\nRestablece tu contraseña: ${url}\n\nEl enlace caduca en 30 minutos y solo se puede usar una vez. Si no lo has solicitado, ignora este correo.`,
+        html: mailTemplate(
+          'Vuelve a los premios.',
+          `<p>Hola ${escapeHtml(user.name)},</p><p>Has solicitado restablecer tu contraseña.</p><p>Este enlace caduca en <strong>30 minutos</strong> y solo se puede usar una vez.</p><p style="color:#aaa08d">Si no lo has solicitado, ignora este correo. Tu contraseña seguirá siendo la misma.</p>`,
+          url,
+          'RESTABLECER CONTRASEÑA',
+        ),
+      });
+    } catch {
+      this.logger.error('Password recovery email failed');
     }
   }
 }

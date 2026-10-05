@@ -32,7 +32,7 @@ export async function request<T>(
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...options.headers,
       },
-      signal: AbortSignal.timeout(15000),
+      signal: options.signal ?? AbortSignal.timeout(15000),
     })
   } catch {
     throw new Error(
@@ -40,6 +40,9 @@ export async function request<T>(
     )
   }
   if (!response.ok) {
+    if (path === '/auth/reset-password' && response.status === 400) {
+      throw new ApiError(400, 'El enlace no es válido o ha caducado. Solicita uno nuevo.')
+    }
     const messages: Record<number, string> = {
       400: 'Revisa los datos. La contraseña debe tener entre 8 y 100 caracteres.',
       401: 'El correo o la contraseña no son correctos. Vuelve a intentarlo.',

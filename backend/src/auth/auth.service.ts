@@ -74,6 +74,7 @@ export class AuthService {
       sub: user._id,
       email: user.email,
       role: user.role,
+      sessionVersion: user.sessionVersion ?? 0,
     };
 
     return {

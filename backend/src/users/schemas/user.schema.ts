@@ -20,6 +20,18 @@ export class User {
   @Prop({ required: false, select: false })
   passwordHash?: string;
 
+  @Prop({ select: false })
+  passwordResetTokenHash?: string;
+
+  @Prop({ select: false })
+  passwordResetExpiresAt?: Date;
+
+  @Prop({ select: false })
+  passwordResetRequestedAt?: Date;
+
+  @Prop({ default: 0 })
+  sessionVersion!: number;
+
   @Prop({ required: false, unique: true, sparse: true })
   googleId?: string;
 

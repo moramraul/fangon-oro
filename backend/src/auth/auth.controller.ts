@@ -10,10 +10,28 @@ import { LoginDto } from './dto/login.dto';
 import { registerDto } from './dto/register.dto';
 import { GoogleLoginDto } from './dto/google-login.dto';
 import { CreatePasswordDto } from './dto/create-password.dto';
+import { PasswordRecoveryService } from './password-recovery.service';
+import {
+  ForgotPasswordDto,
+  ResetPasswordDto,
+} from './dto/password-recovery.dto';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly recovery: PasswordRecoveryService,
+  ) {}
+
+  @Post('forgot-password')
+  forgotPassword(@Body() body: ForgotPasswordDto) {
+    return this.recovery.forgot(body.email);
+  }
+
+  @Post('reset-password')
+  resetPassword(@Body() body: ResetPasswordDto) {
+    return this.recovery.reset(body.token, body.password);
+  }
 
   @Post('register')
   register(@Body() registerDto: registerDto) {
