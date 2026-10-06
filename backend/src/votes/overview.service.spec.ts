@@ -3,7 +3,7 @@ import { NotFoundException } from '@nestjs/common';
 import { Model, Types } from 'mongoose';
 import { EventsService } from '../events/events.service';
 import { Event } from '../events/schemas/event.schema';
-import { User, UserDocument } from '../users/schemas/user.schema';
+import { UserDocument } from '../users/schemas/user.schema';
 import { Vote } from './schemas/vote.schema';
 import { OverviewService } from './overview.service';
 
@@ -30,7 +30,7 @@ describe('OverviewService', () => {
   const votes = { aggregate: jest.fn(), distinct: jest.fn() };
   const users = { find: jest.fn() };
   const lifecycle = { closeExpired: jest.fn() };
-  const snapshots = { latest: jest.fn() };
+  const snapshots = { latest: jest.fn(), forEvent: jest.fn() };
   const savedEntry = {
     id: a.toHexString(),
     name: 'Ana',
@@ -75,7 +75,6 @@ describe('OverviewService', () => {
     service = new OverviewService(
       events as unknown as Model<Event>,
       votes as unknown as Model<Vote>,
-      users as unknown as Model<User>,
       lifecycle as unknown as EventsService,
       snapshots as unknown as RankingSnapshotsService,
     );
@@ -122,6 +121,68 @@ describe('OverviewService', () => {
     const result = await service.overview({ _id: a } as UserDocument);
     expect(result.events[0].hasVoted).toBe(true);
     expect(votes.distinct).toHaveBeenCalledWith('eventId', { voterId: a });
+  });
+
+  it('reads the closed event photo and standings without querying deleted users or votes', async () => {
+    jest.setSystemTime(new Date('2026-10-06'));
+    events.findById.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({
+        ...previous,
+        name: 'Renamed event',
+        participants: [],
+      }),
+    });
+    snapshots.forEvent.mockResolvedValue({
+      event: { name: 'Original event', image: 'original.jpg' },
+      eventRanking: { entries: [savedEntry] },
+      calculatedAt: snapshot.calculatedAt,
+    });
+    const result = await service.results(previous._id.toHexString());
+    expect(result).toMatchObject({
+      name: 'Original event',
+      image: 'original.jpg',
+      calculatedAt: snapshot.calculatedAt.toISOString(),
+      standings: [{ ...savedEntry, rank: 1 }],
+    });
+    expect(users.find).not.toHaveBeenCalled();
+    expect(votes.aggregate).not.toHaveBeenCalled();
+  });
+
+  it('supports existing snapshots without a saved cover', async () => {
+    jest.setSystemTime(new Date('2026-10-06'));
+    events.findById.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({ ...previous, image: 'existing.jpg' }),
+    });
+    snapshots.forEvent.mockResolvedValue({
+      eventRanking: { entries: [savedEntry] },
+    });
+    expect((await service.results(previous._id.toHexString())).image).toBe(
+      'existing.jpg',
+    );
+  });
+
+  it('does not calculate closed results if a snapshot is missing', async () => {
+    jest.setSystemTime(new Date('2026-10-06'));
+    events.findById.mockReturnValue({
+      exec: jest.fn().mockResolvedValue(previous),
+    });
+    snapshots.forEvent.mockResolvedValue(null);
+    await expect(
+      service.results(previous._id.toHexString()),
+    ).rejects.toMatchObject({ status: 503 });
+    expect(votes.aggregate).not.toHaveBeenCalled();
+  });
+
+  it('rejects open results without accessing votes, users or snapshots', async () => {
+    events.findById.mockReturnValue({
+      exec: jest.fn().mockResolvedValue(upcoming),
+    });
+    await expect(
+      service.results(upcoming._id.toHexString()),
+    ).rejects.toMatchObject({ status: 409 });
+    expect(votes.aggregate).not.toHaveBeenCalled();
+    expect(users.find).not.toHaveBeenCalled();
+    expect(snapshots.forEvent).not.toHaveBeenCalled();
   });
 
   it('rejects results from old editions and malformed event IDs', async () => {

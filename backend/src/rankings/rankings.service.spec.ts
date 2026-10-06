@@ -1,22 +1,26 @@
+import { EventsService } from '../events/events.service';
 import { NotFoundException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { EventStatus } from '../events/schemas/event.schema';
 import { UserDocument } from '../users/schemas/user.schema';
-import { VotesService } from '../votes/votes.service';
 import { Ranking } from './models/ranking.model';
 import { RankingsService } from './rankings.service';
 import { RankingSnapshotsService } from './snapshots/ranking-snapshots.service';
 
 describe('RankingsService', () => {
   const a = new Types.ObjectId();
-  const results = { results: jest.fn() };
-  const snapshots = { latest: jest.fn() };
+  const snapshots = { latest: jest.fn(), forEvent: jest.fn() };
+  const events = { getDetail: jest.fn() };
   let service: RankingsService;
   beforeEach(() => {
     jest.resetAllMocks();
+    events.getDetail.mockResolvedValue({
+      id: 'event',
+      status: EventStatus.OPEN,
+    });
     service = new RankingsService(
-      results as unknown as VotesService,
       snapshots as unknown as RankingSnapshotsService,
+      events as unknown as EventsService,
     );
   });
   it('reads the latest saved ranking with its date without recalculating votes', async () => {
@@ -30,34 +34,59 @@ describe('RankingsService', () => {
       ...generalRanking,
       calculatedAt: calculatedAt.toISOString(),
     });
-    expect(results.results).not.toHaveBeenCalled();
   });
   it('returns an empty ranking before the first closure', async () => {
     snapshots.latest.mockResolvedValue(null);
     expect(await service.general()).toEqual(Ranking.from([], 0));
   });
-  it('provides an event ranking from authorized results', async () => {
-    const user = { _id: a } as UserDocument;
-    results.results.mockResolvedValue({
-      eventId: 'event',
-      status: EventStatus.CLOSED,
-      totalPoints: 1,
-      candidates: [{ id: a.toHexString(), name: 'Ana', points: 1 }],
-    });
-    const ranking = await service.forEvent('event', user);
-    expect(results.results).toHaveBeenCalledWith('event', user);
-    expect(ranking).toMatchObject({
-      scope: 'event',
-      eventId: 'event',
-      status: EventStatus.CLOSED,
-    });
+  it('rejects open event rankings without reading snapshots', async () => {
+    await expect(
+      service.forEvent('event', { _id: a } as UserDocument),
+    ).rejects.toMatchObject({ status: 409 });
+    expect(snapshots.forEvent).not.toHaveBeenCalled();
   });
 
   it('preserves event access restrictions', async () => {
-    results.results.mockRejectedValue(new NotFoundException());
+    events.getDetail.mockRejectedValue(new NotFoundException());
     await expect(
       service.forEvent('event', {} as UserDocument),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('returns the immutable event snapshot after a participant is deleted', async () => {
+    events.getDetail.mockResolvedValue({
+      id: 'event',
+      status: EventStatus.CLOSED,
+      participants: [],
+    });
+    const eventRanking = Ranking.from(
+      [{ id: a.toHexString(), name: 'Ana original', points: 9 }],
+      9,
+      { id: 'event', status: EventStatus.CLOSED },
+    );
+    snapshots.forEvent.mockResolvedValue({ eventRanking });
+    const user = { _id: a } as UserDocument;
+    expect(await service.forEvent('event', user)).toEqual(eventRanking);
+    expect(events.getDetail).toHaveBeenCalledWith('event', user);
+  });
+
+  it('does not expose a snapshot to unauthorized users', async () => {
+    events.getDetail.mockRejectedValue(new NotFoundException());
+    await expect(
+      service.forEvent('event', {} as UserDocument),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(snapshots.forEvent).not.toHaveBeenCalled();
+  });
+
+  it('does not recalculate a closed event while its snapshot is missing', async () => {
+    events.getDetail.mockResolvedValue({
+      id: 'event',
+      status: EventStatus.CLOSED,
+    });
+    snapshots.forEvent.mockResolvedValue(null);
+    await expect(
+      service.forEvent('event', {} as UserDocument),
+    ).rejects.toMatchObject({ status: 503 });
   });
 
   it('shares positions on ties and skips the following occupied position', () => {

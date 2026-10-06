@@ -41,7 +41,7 @@ describe('VotesService', () => {
   const events = { findOneAndUpdate: jest.fn(), updateOne: jest.fn() };
   const details = { getDetail: jest.fn() };
   const connection = { transaction: jest.fn() };
-  const snapshots = { capture: jest.fn() };
+  const snapshots = { capture: jest.fn(), forEvent: jest.fn() };
   let service: VotesService;
 
   beforeEach(() => {
@@ -207,42 +207,6 @@ describe('VotesService', () => {
     );
   });
 
-  it('includes zero-vote candidates and no leaders before votes exist', async () => {
-    votes.aggregate.mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
-    votes.countDocuments.mockReturnValue({
-      exec: jest.fn().mockResolvedValue(0),
-    });
-    const result = await service.results(eventId.toHexString(), user);
-    expect(result.totalVotes).toBe(0);
-    expect(result.totalPoints).toBe(0);
-    expect(result.leaderIds).toEqual([]);
-    expect(result.candidates).toHaveLength(4);
-    expect(
-      result.candidates.every((candidate) => candidate.percentage === 0),
-    ).toBe(true);
-  });
-
-  it('reports all tied leaders', async () => {
-    votes.aggregate.mockReturnValue({
-      exec: jest.fn().mockResolvedValue([
-        { _id: voterId, points: 9 },
-        { _id: candidateId, points: 9 },
-      ]),
-    });
-    const result = await service.results(eventId.toHexString(), user);
-    expect(result.totalVotes).toBe(2);
-    expect(result.participationPercentage).toBe(50);
-    expect(result.leaderIds).toEqual(
-      expect.arrayContaining([
-        voterId.toHexString(),
-        candidateId.toHexString(),
-      ]),
-    );
-    expect(result.candidates.map((candidate) => candidate.percentage)).toEqual([
-      50, 50, 0, 0,
-    ]);
-  });
-
   it('does not query results of an inaccessible event', async () => {
     details.getDetail.mockRejectedValue(new NotFoundException());
     await expect(
@@ -269,26 +233,7 @@ describe('VotesService', () => {
     ).rejects.toThrow('Candidates must be distinct');
     expect(votes.create).not.toHaveBeenCalled();
   });
-  it('counts one ballot separately from its nine points', async () => {
-    votes.countDocuments.mockReturnValue({
-      exec: jest.fn().mockResolvedValue(1),
-    });
-    votes.aggregate.mockReturnValue({
-      exec: jest.fn().mockResolvedValue([
-        { _id: candidateId, points: 5 },
-        { _id: secondId, points: 3 },
-        { _id: thirdId, points: 1 },
-      ]),
-    });
-    const result = await service.results(eventId.toHexString(), user);
-    expect(result.totalVotes).toBe(1);
-    expect(result.totalPoints).toBe(9);
-    expect(result.participationPercentage).toBe(25);
-    expect(result.candidates.map((entry) => entry.points)).toEqual([
-      5, 3, 1, 0,
-    ]);
-    expect(result.leaderIds).toEqual([candidateId.toHexString()]);
-  });
+
   it('returns the own ballot with all allocations', async () => {
     votes.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(vote) });
     const result = await service.mine(eventId.toHexString(), user);
@@ -307,35 +252,42 @@ describe('VotesService', () => {
       (await service.mine(eventId.toHexString(), user))?.allocations,
     ).toEqual([{ votedUserId: candidateId.toHexString(), points: 1 }]);
   });
-  it.each([
-    [2, 0, 1, 3], // More fives takes precedence over more threes.
-    [1, 2, 1, 1], // Threes break a tie in fives.
-  ])(
-    'uses score tie-breaks for event results (%p, %p, %p, %p)',
-    async (fiveA, threeA, fiveB, threeB) => {
-      votes.aggregate.mockReturnValue({
-        exec: jest.fn().mockResolvedValue([
-          {
-            _id: candidateId,
-            points: 15,
-            fivePointVotes: fiveA,
-            threePointVotes: threeA,
-          },
-          {
-            _id: secondId,
-            points: 15,
-            fivePointVotes: fiveB,
-            threePointVotes: threeB,
-          },
-        ]),
-      });
-      const result = await service.results(eventId.toHexString(), user);
-      expect(result.leaderIds).toEqual([candidateId.toHexString()]);
-      expect(result.candidates[0]).toMatchObject({
-        id: candidateId.toHexString(),
-        fivePointVotes: fiveA,
-        threePointVotes: threeA,
-      });
+  it.each(['USER', 'ADMIN'])(
+    'rejects open results for %s without reading scores',
+    async (role) => {
+      await expect(
+        service.results(eventId.toHexString(), {
+          ...user,
+          role,
+        } as UserDocument),
+      ).rejects.toMatchObject({ status: 409 });
+      expect(votes.aggregate).not.toHaveBeenCalled();
+      expect(snapshots.forEvent).not.toHaveBeenCalled();
     },
   );
+  it('reads final results from the snapshot after users are deleted', async () => {
+    details.getDetail.mockResolvedValue({
+      id: eventId.toHexString(),
+      status: EventStatus.CLOSED,
+      participants: [],
+    });
+    const entry = {
+      id: candidateId.toHexString(),
+      name: 'Original',
+      points: 9,
+      fivePointVotes: 1,
+      threePointVotes: 1,
+      percentage: 100,
+      position: 1,
+    };
+    snapshots.forEvent.mockResolvedValue({
+      eventRanking: { entries: [entry], totalPoints: 9, leaderIds: [entry.id] },
+      totalVotes: 1,
+      participantCount: 4,
+    });
+    const result = await service.results(eventId.toHexString(), user);
+    expect(result.candidates).toEqual([entry]);
+    expect(result.participationPercentage).toBe(25);
+    expect(votes.aggregate).not.toHaveBeenCalled();
+  });
 });

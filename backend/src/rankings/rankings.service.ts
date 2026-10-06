@@ -1,22 +1,34 @@
-import { Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  ServiceUnavailableException,
+} from '@nestjs/common';
+import { EventsService } from '../events/events.service';
+import { EventStatus } from '../events/schemas/event.schema';
 import { UserDocument } from '../users/schemas/user.schema';
-import { VotesService } from '../votes/votes.service';
 import { Ranking } from './models/ranking.model';
 import { RankingSnapshotsService } from './snapshots/ranking-snapshots.service';
 
 @Injectable()
 export class RankingsService {
   constructor(
-    private readonly votesService: VotesService,
     private readonly snapshots: RankingSnapshotsService,
+    private readonly eventsService: EventsService,
   ) {}
 
   async forEvent(eventId: string, user: UserDocument): Promise<Ranking> {
-    const results = await this.votesService.results(eventId, user);
-    return Ranking.from(results.candidates, results.totalPoints, {
-      id: results.eventId,
-      status: results.status,
-    });
+    // Check authorization before exposing the saved participant names and scores.
+    const event = await this.eventsService.getDetail(eventId, user);
+    if (event.status !== EventStatus.CLOSED)
+      throw new ConflictException(
+        'Results are only available after the event closes',
+      );
+    const snapshot = await this.snapshots.forEvent(event.id);
+    if (!snapshot?.eventRanking)
+      throw new ServiceUnavailableException(
+        'Event snapshot is not available yet',
+      );
+    return snapshot.eventRanking;
   }
 
   async general(): Promise<Ranking & { calculatedAt?: string }> {

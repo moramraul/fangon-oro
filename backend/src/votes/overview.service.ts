@@ -1,13 +1,20 @@
 import { RankingSnapshotsService } from '../rankings/snapshots/ranking-snapshots.service';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { EventsService } from '../events/events.service';
-import { Event, EventDocument } from '../events/schemas/event.schema';
-import { User, UserDocument } from '../users/schemas/user.schema';
+import {
+  Event,
+  EventDocument,
+  EventStatus,
+} from '../events/schemas/event.schema';
+import { UserDocument } from '../users/schemas/user.schema';
 import { editionYear } from './edition';
-import { pointsPipeline } from './points.pipeline';
-import { compareScores, Score } from './score';
 import { Vote } from './schemas/vote.schema';
 
 @Injectable()
@@ -15,63 +22,12 @@ export class OverviewService {
   constructor(
     @InjectModel(Event.name) private readonly events: Model<Event>,
     @InjectModel(Vote.name) private readonly votes: Model<Vote>,
-    @InjectModel(User.name) private readonly users: Model<User>,
     private readonly eventsService: EventsService,
     private readonly snapshots: RankingSnapshotsService,
   ) {}
 
   private start(event: EventDocument) {
     return event.startDate ?? event.date;
-  }
-
-  private async ranking(events: EventDocument[]) {
-    const participantIds = [
-      ...new Map(
-        events.flatMap((event) =>
-          event.participants.map((id) => [id.toHexString(), id] as const),
-        ),
-      ).values(),
-    ];
-    if (!participantIds.length) return [];
-    const [counts, participants] = await Promise.all([
-      this.votes
-        .aggregate<{ _id: Types.ObjectId } & Score>([
-          { $match: { eventId: { $in: events.map((event) => event._id) } } },
-          ...pointsPipeline(),
-        ])
-        .exec(),
-      this.users
-        .find({ _id: { $in: participantIds } })
-        .select('_id name avatar')
-        .exec(),
-    ]);
-    const byUser = new Map(
-      counts.map((entry) => [entry._id.toHexString(), entry]),
-    );
-    const sorted = participants
-      .map((user) => {
-        const score = byUser.get(user._id.toHexString());
-        return {
-          id: user._id.toHexString(),
-          name: user.name,
-          avatar: user.avatar ?? null,
-          points: score?.points ?? 0,
-          fivePointVotes: score?.fivePointVotes ?? 0,
-          threePointVotes: score?.threePointVotes ?? 0,
-        };
-      })
-      .sort(
-        (a, b) =>
-          compareScores(a, b) ||
-          a.name.localeCompare(b.name, 'es') ||
-          a.id.localeCompare(b.id),
-      );
-    let rank = 0;
-    return sorted.map((entry, index) => {
-      if (!index || compareScores(entry, sorted[index - 1]) !== 0)
-        rank = index + 1;
-      return { ...entry, rank };
-    });
   }
 
   async overview(user: UserDocument) {
@@ -126,11 +82,28 @@ export class OverviewService {
       editionYear(this.start(event)) !== editionYear(new Date())
     )
       throw new NotFoundException('Event not found');
-    return {
-      id,
-      name: event.name,
-      image: event.image ?? null,
-      standings: await this.ranking([event]),
-    };
+    if (event.status === EventStatus.CLOSED) {
+      const snapshot = await this.snapshots.forEvent(event._id.toHexString());
+      if (!snapshot?.eventRanking)
+        throw new ServiceUnavailableException(
+          'Event snapshot is not available yet',
+        );
+      return {
+        id,
+        name: snapshot.event?.name ?? event.name,
+        image:
+          snapshot.event?.image === undefined
+            ? (event.image ?? null)
+            : snapshot.event.image,
+        calculatedAt: snapshot.calculatedAt?.toISOString() ?? null,
+        standings: snapshot.eventRanking.entries.map((entry) => ({
+          ...entry,
+          rank: entry.position,
+        })),
+      };
+    }
+    throw new ConflictException(
+      'Results are only available after the event closes',
+    );
   }
 }

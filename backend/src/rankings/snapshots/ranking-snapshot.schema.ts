@@ -17,10 +17,17 @@ export class RankingSnapshot {
   @Prop()
   calculatedAt?: Date;
 
+  @Prop()
+  totalVotes?: number;
+
+  @Prop()
+  participantCount?: number;
+
   @Prop({ type: MongoSchema.Types.Mixed })
   event?: {
     id: string;
     name: string;
+    image?: string | null;
     startDate: Date;
     endDate?: Date;
     year: number;

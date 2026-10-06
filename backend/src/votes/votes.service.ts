@@ -1,19 +1,35 @@
 import { RankingSnapshotsService } from '../rankings/snapshots/ranking-snapshots.service';
+import { RankingEntry } from '../rankings/models/ranking.model';
 import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
   OnModuleInit,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, Model, Types } from 'mongoose';
 import { EventsService } from '../events/events.service';
-import { Event, EventStatus } from '../events/schemas/event.schema';
+import {
+  Event,
+  EventStatus,
+  EventSummaryStatus,
+} from '../events/schemas/event.schema';
 import { UserDocument } from '../users/schemas/user.schema';
-import { compareScores, Score } from './score';
-import { pointsPipeline } from './points.pipeline';
 import { Vote } from './schemas/vote.schema';
+
+export interface EventResults {
+  eventId: string;
+  status: EventSummaryStatus;
+  calculatedAt?: string | null;
+  totalVotes: number | null;
+  totalPoints: number;
+  participantCount: number;
+  participationPercentage: number | null;
+  candidates: (Omit<RankingEntry, 'position'> & { position?: number })[];
+  leaderIds: string[];
+}
 
 @Injectable()
 export class VotesService implements OnModuleInit {
@@ -124,58 +140,40 @@ export class VotesService implements OnModuleInit {
     return vote ? this.response(vote) : null;
   }
 
-  async results(eventId: string, user: UserDocument) {
+  async results(eventId: string, user: UserDocument): Promise<EventResults> {
     const event = await this.eventsService.getDetail(eventId, user);
-    const counts = await this.voteModel
-      .aggregate<{ _id: Types.ObjectId } & Score>([
-        { $match: { eventId: new Types.ObjectId(eventId) } },
-        ...pointsPipeline(),
-      ])
-      .exec();
-    const totalVotes = await this.voteModel
-      .countDocuments({ eventId: new Types.ObjectId(eventId) })
-      .exec();
-    const totalPoints = counts.reduce(
-      (total, entry) => total + entry.points,
-      0,
+    if (event.status === EventStatus.CLOSED) {
+      const snapshot = await this.snapshots.forEvent(event.id);
+      if (!snapshot?.eventRanking)
+        throw new ServiceUnavailableException(
+          'Event snapshot is not available yet',
+        );
+      const ranking = snapshot.eventRanking;
+      const candidates: RankingEntry[] = ranking.entries;
+      // Older snapshots preserve scores but did not record participation counts.
+      const totalVotes = snapshot.totalVotes ?? null;
+      const participantCount =
+        snapshot.participantCount ?? ranking.entries.length;
+      return {
+        eventId: event.id,
+        status: EventStatus.CLOSED,
+        calculatedAt: snapshot.calculatedAt?.toISOString() ?? null,
+        totalVotes,
+        totalPoints: ranking.totalPoints,
+        participantCount,
+        participationPercentage:
+          totalVotes === null
+            ? null
+            : participantCount
+              ? Math.round((totalVotes / participantCount) * 10000) / 100
+              : 0,
+        candidates,
+        leaderIds: ranking.leaderIds,
+      };
+    }
+    throw new ConflictException(
+      'Results are only available after the event closes',
     );
-    const byUser = new Map(
-      counts.map((entry) => [entry._id.toHexString(), entry]),
-    );
-    const candidates = event.participants
-      .map((participant) => {
-        const score = byUser.get(participant.id);
-        const points = score?.points ?? 0;
-        return {
-          ...participant,
-          points,
-          fivePointVotes: score?.fivePointVotes ?? 0,
-          threePointVotes: score?.threePointVotes ?? 0,
-          percentage: totalPoints
-            ? Math.round((points / totalPoints) * 10000) / 100
-            : 0,
-        };
-      })
-      .sort((a, b) => compareScores(a, b) || a.id.localeCompare(b.id));
-    const highest = candidates[0]?.points ?? 0;
-    return {
-      eventId: event.id,
-      status: event.status,
-      totalVotes,
-      totalPoints,
-      participantCount: event.participantCount,
-      participationPercentage: event.participantCount
-        ? Math.round((totalVotes / event.participantCount) * 10000) / 100
-        : 0,
-      candidates,
-      leaderIds: highest
-        ? candidates
-            .filter(
-              (candidate) => compareScores(candidate, candidates[0]) === 0,
-            )
-            .map((candidate) => candidate.id)
-        : [],
-    };
   }
 
   private response(vote: Vote) {

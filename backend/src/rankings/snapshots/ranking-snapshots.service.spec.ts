@@ -34,11 +34,12 @@ describe('RankingSnapshotsService', () => {
     distinct: jest.fn(),
   };
   const events = { findOne: jest.fn(), find: jest.fn() };
-  const votes = { aggregate: jest.fn() };
+  const votes = { aggregate: jest.fn(), countDocuments: jest.fn() };
   const users = { find: jest.fn() };
   let service: RankingSnapshotsService;
   beforeEach(() => {
     jest.resetAllMocks();
+    votes.countDocuments.mockReturnValue(query(1));
     snapshots.findOneAndUpdate.mockReturnValue(query({ revision: 2 }));
     snapshots.exists.mockReturnValue(query(null));
     snapshots.find.mockReturnValue(query([]));
@@ -105,7 +106,16 @@ describe('RankingSnapshotsService', () => {
       position: 1,
     };
     snapshots.find.mockReturnValue(
-      query([{ event: { year: 2026 }, eventRanking: { entries: [prior] } }]),
+      query([
+        {
+          event: { year: 2026 },
+          eventRanking: { entries: [prior] },
+          generalRanking: {
+            totalPoints: 9999,
+            entries: [{ ...prior, points: 9999 }],
+          },
+        },
+      ]),
     );
     await service.capture(id.toHexString(), session);
     const saved = snapshots.create.mock.calls[0][0][0];
@@ -116,6 +126,9 @@ describe('RankingSnapshotsService', () => {
     });
     expect(saved.editions?.['2026'][0].points).toBe(14);
     expect(events.findOne).toHaveBeenCalledTimes(1);
+    // Only the new event's ballots are read; historical totals come from its
+    // event snapshot, never from the previous general ranking or live ballots.
+    expect(votes.aggregate).toHaveBeenCalledTimes(1);
   });
 
   it('does not save or count an event twice', async () => {
@@ -143,6 +156,16 @@ describe('RankingSnapshotsService', () => {
       key: { $ne: '__lock__' },
     });
     expect(chain.sort).toHaveBeenCalledWith({ revision: -1 });
+  });
+
+  it('loads a specific event snapshot without accessing events, users or ballots', async () => {
+    const saved = { key: id.toHexString(), eventRanking: { entries: [] } };
+    snapshots.findOne.mockReturnValue(query(saved));
+    expect(await service.forEvent(id.toHexString())).toEqual(saved);
+    expect(snapshots.findOne).toHaveBeenCalledWith({ key: id.toHexString() });
+    expect(events.findOne).not.toHaveBeenCalled();
+    expect(users.find).not.toHaveBeenCalled();
+    expect(votes.aggregate).not.toHaveBeenCalled();
   });
 
   it('preserves sporting ties when adding saved scores', () => {

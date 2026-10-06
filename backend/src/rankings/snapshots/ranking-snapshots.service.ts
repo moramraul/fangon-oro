@@ -29,6 +29,10 @@ export class RankingSnapshotsService {
       .exec();
   }
 
+  async forEvent(eventId: string) {
+    return this.snapshots.findOne({ key: eventId }).lean().exec();
+  }
+
   // Also repairs interrupted writes and backfills events closed before snapshots existed.
   async reconcile() {
     const [closed, saved] = await Promise.all([
@@ -112,6 +116,10 @@ export class RankingSnapshotsService {
       counts.reduce((sum, score) => sum + score.points, 0),
       { id: eventId, status: EventStatus.CLOSED },
     ) as Ranking & { entries: SnapshotEntry[] };
+    const totalVotes = await this.votes
+      .countDocuments({ eventId: event._id })
+      .session(session)
+      .exec();
     const previous = await this.snapshots
       .find({ key: { $ne: '__lock__' } })
       .sort({ revision: 1 })
@@ -141,9 +149,12 @@ export class RankingSnapshotsService {
           key: eventId,
           revision: lock.revision,
           calculatedAt: new Date(),
+          totalVotes,
+          participantCount: event.participants.length,
           event: {
             id: eventId,
             name: event.name,
+            image: event.image ?? null,
             startDate,
             endDate: event.endDate,
             year: editionYear(startDate),
