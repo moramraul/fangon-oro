@@ -48,6 +48,7 @@
 }
 .vote-field select:focus-visible,
 .vote-submit:focus-visible,
+.vote-cancel:focus-visible,
 .event-vote-link:focus-visible {
   outline: 2px solid var(--gold);
   outline-offset: 3px;
@@ -65,9 +66,25 @@
   font-weight: 700;
   cursor: pointer;
 }
-.vote-submit:disabled {
+.vote-submit:disabled,
+.vote-cancel:disabled {
   opacity: 0.5;
   cursor: default;
+}
+.vote-review-actions {
+  display: grid;
+  gap: 12px;
+}
+.vote-cancel {
+  min-height: 52px;
+  padding: 12px;
+  border: 1px solid #6d6042;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--gold);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
 }
 .vote-confirmation h2 {
   color: var(--gold);

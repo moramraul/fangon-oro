@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { ApiError, request } from '../api'
 import { useAuthStore } from '../stores/auth'
 import EventCover from '../components/events/EventCover.vue'
@@ -26,6 +26,9 @@ const selections = ref(['', '', ''])
 const points = [5, 3, 1]
 const loading = ref(true)
 const saving = ref(false)
+const reviewing = ref(false)
+const reviewHeading = ref<HTMLHeadingElement | null>(null)
+const firstSelection = ref<HTMLSelectElement | null>(null)
 const error = ref('')
 const now = ref(Date.now())
 let timer: ReturnType<typeof setInterval> | undefined
@@ -47,6 +50,27 @@ const canSubmit = computed(
     selections.value.every((id) => candidates.value.some((p) => p.id === id)) &&
     new Set(selections.value).size === 3,
 )
+const reviewAllocations = computed(() =>
+  selections.value.map((id, index) => ({
+    id,
+    points: points[index],
+    name: candidates.value.find((candidate) => candidate.id === id)?.name ?? 'Participante',
+  })),
+)
+async function review() {
+  if (!canSubmit.value || saving.value || vote.value) return
+  error.value = ''
+  reviewing.value = true
+  await nextTick()
+  reviewHeading.value?.focus()
+}
+async function cancelReview() {
+  if (saving.value) return
+  reviewing.value = false
+  error.value = ''
+  await nextTick()
+  firstSelection.value?.focus()
+}
 function eventId() {
   return location.hash.split('/')[2] ?? ''
 }
@@ -73,6 +97,7 @@ async function load() {
   error.value = ''
   event.value = null
   vote.value = null
+  reviewing.value = false
   selections.value = ['', '', '']
   try {
     const id = eventId()
@@ -90,7 +115,7 @@ async function load() {
   }
 }
 async function submit() {
-  if (!canSubmit.value || saving.value || vote.value || !auth.token) return
+  if (!reviewing.value || !canSubmit.value || saving.value || vote.value || !auth.token) return
   saving.value = true
   error.value = ''
   try {
@@ -102,7 +127,7 @@ async function submit() {
       },
       auth.token,
     )
-    event.value = await request<EventDetail>(`/events/${eventId()}`, {}, auth.token)
+    reviewing.value = false
   } catch (cause) {
     handleError(cause)
   } finally {
@@ -162,7 +187,36 @@ onUnmounted(() => {
       <p v-else-if="event && candidates.length < 3" class="events-message" role="status">
         Se necesitan al menos tres participantes más para repartir tus puntos.
       </p>
-      <form v-else-if="event" class="voting-form" @submit.prevent="submit">
+      <section
+        v-else-if="event && reviewing"
+        class="vote-confirmation"
+        aria-labelledby="vote-review-title"
+        :aria-busy="saving"
+      >
+        <h2 id="vote-review-title" ref="reviewHeading" tabindex="-1">Revisa tu voto</h2>
+        <p>Este es tu reparto de puntos para {{ event.name }}.</p>
+        <dl class="vote-summary">
+          <div v-for="allocation in reviewAllocations" :key="allocation.id">
+            <dt>{{ allocation.points }} {{ allocation.points === 1 ? 'punto' : 'puntos' }}</dt>
+            <dd>{{ allocation.name }}</dd>
+          </div>
+        </dl>
+        <p>Al confirmar, tu voto quedará registrado y no podrás modificarlo.</p>
+        <div class="vote-review-actions">
+          <button
+            class="vote-submit"
+            type="button"
+            :disabled="saving || !canSubmit"
+            @click="submit"
+          >
+            {{ saving ? 'Registrando voto…' : 'Confirmar y enviar voto' }}
+          </button>
+          <button class="vote-cancel" type="button" :disabled="saving" @click="cancelReview">
+            Cancelar y volver al formulario
+          </button>
+        </div>
+      </section>
+      <form v-else-if="event" class="voting-form" @submit.prevent="review">
         <p id="voting-instructions">
           Reparte 5, 3 y 1 punto entre tres participantes distintos. No puedes votarte a ti mismo.
         </p>
@@ -172,7 +226,16 @@ onUnmounted(() => {
             <label :for="`vote-${score}`"
               ><span>{{ score }}</span> {{ score === 1 ? 'punto' : 'puntos' }}</label
             >
-            <select :id="`vote-${score}`" v-model="selections[index]" required>
+            <select
+              :id="`vote-${score}`"
+              :ref="
+                (element) => {
+                  if (index === 0) firstSelection = element as HTMLSelectElement | null
+                }
+              "
+              v-model="selections[index]"
+              required
+            >
               <option disabled value="">Selecciona un participante</option>
               <option
                 v-for="candidate in candidates"
@@ -190,7 +253,7 @@ onUnmounted(() => {
             Revisa tu elección antes de enviarla. Una vez registrado, no podrás cambiar tu voto.
           </p>
           <button class="vote-submit" type="submit" :disabled="!canSubmit || saving">
-            {{ saving ? 'Registrando voto…' : 'Enviar mi voto' }}
+            Revisar mi voto
           </button>
         </fieldset>
       </form>
