@@ -9,6 +9,15 @@
   role: 'USER' | 'ADMIN'
   isActive: boolean
 }
+export interface EditionSummary {
+  id: string
+  name: string
+  number: number
+  status: 'open' | 'closed'
+  opensAt: string
+  expectedEndsAt: string
+  closedAt: string | null
+}
 export class ApiError extends Error {
   constructor(
     public status: number,

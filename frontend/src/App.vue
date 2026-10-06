@@ -13,6 +13,8 @@ import EventCreateView from './views/EventCreateView.vue'
 import VotingView from './views/VotingView.vue'
 import OverviewView from './views/OverviewView.vue'
 import RankingsView from './views/RankingsView.vue'
+import StatsView from './views/StatsView.vue'
+import PastEventsView from './views/PastEventsView.vue'
 import { useAuthStore } from './stores/auth'
 import { useHashRoute } from './composables/useHashRoute'
 import './style.css'
@@ -26,9 +28,17 @@ watch(route, async () => {
 watch([route, () => auth.user, () => auth.restoring], () => {
   if (auth.restoring) return
   if (
-    ['overview', 'rankings', 'profile', 'edit-profile', 'events', 'manage-events', 'vote'].includes(
-      route.value,
-    ) &&
+    [
+      'overview',
+      'rankings',
+      'stats',
+      'profile',
+      'edit-profile',
+      'events',
+      'past-events',
+      'manage-events',
+      'vote',
+    ].includes(route.value) &&
     !auth.user
   )
     location.hash = '/login'
@@ -48,6 +58,8 @@ onMounted(() => void auth.restore())
     <SessionState v-else-if="auth.restoring || auth.needsSessionRecovery" />
     <OverviewView v-else-if="(route === 'overview' || route === 'events') && auth.user" />
     <RankingsView v-else-if="route === 'rankings' && auth.user" />
+    <StatsView v-else-if="route === 'stats' && auth.user" />
+    <PastEventsView v-else-if="route === 'past-events' && auth.user" />
     <EventCreateView v-else-if="route === 'manage-events' && auth.user?.role === 'ADMIN'" />
     <VotingView v-else-if="route === 'vote' && auth.user" />
     <ProfileEditView v-else-if="route === 'edit-profile' && auth.user" :user="auth.user" />

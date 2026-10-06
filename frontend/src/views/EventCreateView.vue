@@ -57,7 +57,9 @@ function message(cause: unknown) {
     if (cause.status === 401) return 'Tu sesión ha caducado. Vuelve a iniciar sesión.'
     if (cause.status === 403) return 'Solo los administradores pueden gestionar eventos.'
     if (cause.status === 409)
-      return 'El evento ha cambiado o la votación ya ha comenzado. Vuelve a cargar el evento.'
+      return editing.value
+        ? 'El evento ha cambiado o la votación ya ha comenzado. Vuelve a cargar el evento.'
+        : 'La nueva edición todavía no admite eventos. Espera un minuto desde el cierre de la anterior y vuelve a intentarlo.'
     if (cause.status === 404) return 'El evento ya no está disponible.'
     if (cause.status === 400)
       return 'Revisa el nombre, la imagen, las fechas y los participantes. Algún usuario podría haber dejado de estar disponible.'

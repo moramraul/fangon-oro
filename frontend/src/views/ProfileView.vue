@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import MemberCard from '../components/profile/MemberCard.vue'
 import PendingUsers from '../components/profile/PendingUsers.vue'
+import EditionsAdmin from '../components/profile/EditionsAdmin.vue'
 import type { User } from '../api'
 import { useAuthStore } from '../stores/auth'
 import '../styles/profile.css'
@@ -23,6 +24,7 @@ const auth = useAuthStore()
       </a>
     </nav>
     <PendingUsers v-if="user.role === 'ADMIN'" />
+    <EditionsAdmin v-if="user.role === 'ADMIN'" />
     <button class="logout" @click="auth.logout">
       Cerrar sesión <span aria-hidden="true">↗</span>
     </button>

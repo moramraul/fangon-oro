@@ -27,3 +27,47 @@
 .ranking-event-cover {
   margin-bottom: 18px;
 }
+
+.rankings-history {
+  margin: -8px 0 24px;
+  padding: 12px 14px;
+  border-left: 2px solid #d9b66555;
+  border-radius: 0 8px 8px 0;
+  background: #ffffff04;
+}
+.rankings-history-label {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.rankings-history-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+.rankings-history-option {
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.rankings-history-option:hover {
+  background: #ffffff08;
+  color: #f3d68d;
+}
+.rankings-history-option[aria-pressed='true'] {
+  border-color: #d9b66545;
+  background: #d9b66512;
+  color: #f3d68d;
+  font-weight: 600;
+}
+.rankings-history-option:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
