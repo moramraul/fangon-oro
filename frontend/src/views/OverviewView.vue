@@ -27,6 +27,7 @@ interface Overview {
   year: number
   rankingYear: number
   serverTime: string
+  calculatedAt: string | null
   standings: Standing[]
   events: EditionEvent[]
 }
@@ -149,8 +150,11 @@ onUnmounted(() => {
             >
           </header>
           <p class="overview-ranking-edition">Edición {{ data.rankingYear }} · puntos acumulados</p>
+          <p v-if="data.calculatedAt" class="overview-ranking-edition">
+            Actualizada el {{ date(data.calculatedAt) }}
+          </p>
           <p v-if="data.rankingYear !== currentYear" class="overview-message">
-            La clasificación anterior se mantiene hasta que comience el primer evento de
+            La clasificación anterior se mantiene hasta que se cierre el primer evento de
             {{ currentYear }}.
           </p>
           <div v-if="podium.length" class="overview-podium">
