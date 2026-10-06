@@ -27,7 +27,7 @@ export class AuthService {
       id: user._id.toHexString(),
       isActive: user.isActive,
       message:
-        'Cuenta creada. Un administrador debe activarla antes de iniciar sesión.',
+        'Pendiente de activación por parte del administrador. Recibirás un correo de confirmación.',
     };
   }
 

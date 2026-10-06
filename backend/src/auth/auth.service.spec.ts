@@ -39,7 +39,11 @@ describe('Account activation', () => {
   it('registers without issuing a token', async () => {
     expect(
       await service.register({ ...credentials, name: 'Ana' }),
-    ).toMatchObject({ isActive: false });
+    ).toMatchObject({
+      isActive: false,
+      message:
+        'Pendiente de activación por parte del administrador. Recibirás un correo de confirmación.',
+    });
     expect(jwt.signAsync).not.toHaveBeenCalled();
   });
 

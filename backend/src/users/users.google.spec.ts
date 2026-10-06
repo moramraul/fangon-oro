@@ -2,6 +2,7 @@ import { UnauthorizedException } from '@nestjs/common';
 import { Model } from 'mongoose';
 import { UsersService } from './users.service';
 import { UserDocument } from './schemas/user.schema';
+import { NotificationsService } from '../notifications/notifications.service';
 
 describe('Google account linking', () => {
   const model = {
@@ -9,7 +10,10 @@ describe('Google account linking', () => {
     findOneAndUpdate: jest.fn(),
     create: jest.fn(),
   };
-  const service = new UsersService(model as unknown as Model<UserDocument>);
+  const service = new UsersService(
+    model as unknown as Model<UserDocument>,
+    { accountActivated: jest.fn() } as unknown as NotificationsService,
+  );
   const identity = {
     googleId: 'google-123',
     email: 'ana@gmail.com',

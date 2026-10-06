@@ -5,6 +5,7 @@ import { Model } from 'mongoose';
 import { CreatePasswordDto } from '../auth/dto/create-password.dto';
 import { UserDocument } from './schemas/user.schema';
 import { UsersService } from './users.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 describe('Creating a password for a Google account', () => {
   const model = {
@@ -12,7 +13,10 @@ describe('Creating a password for a Google account', () => {
     findByIdAndUpdate: jest.fn(),
     exists: jest.fn(),
   };
-  const service = new UsersService(model as unknown as Model<UserDocument>);
+  const service = new UsersService(
+    model as unknown as Model<UserDocument>,
+    { accountActivated: jest.fn() } as unknown as NotificationsService,
+  );
   beforeEach(() => jest.resetAllMocks());
 
   it('hashes the password and only updates active Google accounts with no password', async () => {

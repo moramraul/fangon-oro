@@ -57,6 +57,40 @@ describe('NotificationsService', () => {
 
   afterEach(() => jest.restoreAllMocks());
 
+  it('sends activation confirmation with escaped content and a login link', async () => {
+    await service().accountActivated({
+      name: '<Ana>',
+      email: 'ana@example.com',
+    });
+    expect(sendMail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: { name: '<Ana>', address: 'ana@example.com' },
+        subject: 'Tu cuenta ya está activa · Fangón de Oro',
+        html: expect.stringContaining('Hola &lt;Ana&gt;,'),
+        text: expect.stringContaining('https://app.example.com#/login'),
+      }),
+    );
+  });
+
+  it('does not send activation mail when disabled', async () => {
+    await service({ MAIL_ENABLED: 'false' }).accountActivated({
+      name: 'Ana',
+      email: 'ana@example.com',
+    });
+    expect(sendMail).not.toHaveBeenCalled();
+  });
+
+  it('does not propagate SMTP failures during activation', async () => {
+    sendMail.mockRejectedValueOnce(new Error('SMTP unavailable'));
+    const log = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => {});
+    await expect(
+      service().accountActivated({ name: 'Ana', email: 'ana@example.com' }),
+    ).resolves.toBeUndefined();
+    expect(log).toHaveBeenCalledWith('Account activation email failed');
+  });
+
   it('uses configurable SMTP without connecting during construction', () => {
     service();
     expect(createTransport).toHaveBeenCalledWith(
