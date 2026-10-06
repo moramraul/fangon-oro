@@ -1,3 +1,4 @@
+import { RankingSnapshotsService } from '../rankings/snapshots/ranking-snapshots.service';
 import {
   BadRequestException,
   ConflictException,
@@ -21,6 +22,7 @@ export class VotesService implements OnModuleInit {
     @InjectModel(Event.name) private readonly eventModel: Model<Event>,
     @InjectConnection() private readonly connection: Connection,
     private readonly eventsService: EventsService,
+    private readonly snapshots: RankingSnapshotsService,
   ) {}
 
   async onModuleInit() {
@@ -97,6 +99,8 @@ export class VotesService implements OnModuleInit {
             )
             .exec();
         }
+        if (totalVotes === event.participants.length)
+          await this.snapshots.capture(eventId, session);
         return this.response(vote);
       });
     } catch (error: unknown) {

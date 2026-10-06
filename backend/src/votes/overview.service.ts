@@ -1,14 +1,11 @@
+import { RankingSnapshotsService } from '../rankings/snapshots/ranking-snapshots.service';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { EventsService } from '../events/events.service';
-import {
-  Event,
-  EventDocument,
-  EventStatus,
-} from '../events/schemas/event.schema';
+import { Event, EventDocument } from '../events/schemas/event.schema';
 import { User, UserDocument } from '../users/schemas/user.schema';
-import { editionYear, standingsYear } from './edition';
+import { editionYear } from './edition';
 import { pointsPipeline } from './points.pipeline';
 import { compareScores, Score } from './score';
 import { Vote } from './schemas/vote.schema';
@@ -20,6 +17,7 @@ export class OverviewService {
     @InjectModel(Vote.name) private readonly votes: Model<Vote>,
     @InjectModel(User.name) private readonly users: Model<User>,
     private readonly eventsService: EventsService,
+    private readonly snapshots: RankingSnapshotsService,
   ) {}
 
   private start(event: EventDocument) {
@@ -86,26 +84,18 @@ export class OverviewService {
         (id: Types.ObjectId) => id.toHexString(),
       ),
     );
-    const rankingYear = standingsYear(
-      events.flatMap((event) =>
-        this.start(event) ? [this.start(event)!] : [],
-      ),
-      now,
-    );
-    const closed = events.filter((event) => {
-      const start = this.start(event);
-      return (
-        event.status === EventStatus.CLOSED &&
-        start &&
-        start <= now &&
-        editionYear(start) === rankingYear
-      );
-    });
+    const snapshot = await this.snapshots.latest();
+    const availableYears = Object.keys(snapshot?.editions ?? {}).map(Number);
+    const rankingYear = availableYears.length
+      ? Math.max(...availableYears)
+      : year;
+    const standings = snapshot?.editions?.[rankingYear] ?? [];
     return {
       year,
       rankingYear,
       serverTime: now.toISOString(),
-      standings: await this.ranking(closed),
+      calculatedAt: snapshot?.calculatedAt?.toISOString() ?? null,
+      standings: standings.map((entry) => ({ ...entry, rank: entry.position })),
       events: events
         .filter((event) => {
           const start = this.start(event);
@@ -115,7 +105,7 @@ export class OverviewService {
           id: event._id.toHexString(),
           name: event.name,
           image: event.image ?? null,
-          startDate: this.start(event)!.toISOString(),
+          startDate: this.start(event).toISOString(),
           endDate: event.endDate?.toISOString() ?? null,
           status: event.status,
           participantCount: event.participants.length,
@@ -133,7 +123,7 @@ export class OverviewService {
     if (
       !event ||
       !this.start(event) ||
-      editionYear(this.start(event)!) !== editionYear(new Date())
+      editionYear(this.start(event)) !== editionYear(new Date())
     )
       throw new NotFoundException('Event not found');
     return {

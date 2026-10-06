@@ -1,23 +1,14 @@
-import { Score } from '../votes/score';
-import { pointsPipeline } from '../votes/points.pipeline';
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { Event, EventStatus } from '../events/schemas/event.schema';
-import { EventsService } from '../events/events.service';
-import { User, UserDocument } from '../users/schemas/user.schema';
-import { Vote } from '../votes/schemas/vote.schema';
+import { UserDocument } from '../users/schemas/user.schema';
 import { VotesService } from '../votes/votes.service';
 import { Ranking } from './models/ranking.model';
+import { RankingSnapshotsService } from './snapshots/ranking-snapshots.service';
 
 @Injectable()
 export class RankingsService {
   constructor(
-    @InjectModel(Vote.name) private readonly voteModel: Model<Vote>,
-    @InjectModel(Event.name) private readonly eventModel: Model<Event>,
-    @InjectModel(User.name) private readonly userModel: Model<User>,
     private readonly votesService: VotesService,
-    private readonly eventsService: EventsService,
+    private readonly snapshots: RankingSnapshotsService,
   ) {}
 
   async forEvent(eventId: string, user: UserDocument): Promise<Ranking> {
@@ -28,45 +19,13 @@ export class RankingsService {
     });
   }
 
-  async general(): Promise<Ranking> {
-    await this.eventsService.closeExpired();
-    const closedEventIds = await this.eventModel
-      .distinct('_id', { status: EventStatus.CLOSED })
-      .exec();
-    const counts = await this.voteModel
-      .aggregate<{ _id: Types.ObjectId } & Score>([
-        { $match: { eventId: { $in: closedEventIds } } },
-        ...pointsPipeline(),
-      ])
-      .exec();
-    const participantIds = await this.eventModel
-      .distinct('participants')
-      .exec();
-    const ids = [
-      ...new Set([
-        ...participantIds.map((id: Types.ObjectId) => id.toHexString()),
-        ...counts.map((entry) => entry._id.toHexString()),
-      ]),
-    ];
-    const users = await this.userModel
-      .find({ _id: { $in: ids } })
-      .select('_id name')
-      .exec();
-    const names = new Map(
-      users.map((user) => [user._id.toHexString(), user.name]),
-    );
-    const points = new Map(
-      counts.map((entry) => [entry._id.toHexString(), entry]),
-    );
-    return Ranking.from(
-      ids.map((id) => ({
-        id,
-        name: names.get(id) ?? 'Usuario eliminado',
-        points: points.get(id)?.points ?? 0,
-        fivePointVotes: points.get(id)?.fivePointVotes ?? 0,
-        threePointVotes: points.get(id)?.threePointVotes ?? 0,
-      })),
-      counts.reduce((total, entry) => total + entry.points, 0),
-    );
+  async general(): Promise<Ranking & { calculatedAt?: string }> {
+    const snapshot = await this.snapshots.latest();
+    return snapshot?.generalRanking
+      ? {
+          ...snapshot.generalRanking,
+          calculatedAt: snapshot.calculatedAt?.toISOString(),
+        }
+      : Ranking.from([], 0);
   }
 }

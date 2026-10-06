@@ -1,3 +1,4 @@
+import { RankingSnapshotsService } from '../rankings/snapshots/ranking-snapshots.service';
 import {
   BadRequestException,
   ConflictException,
@@ -27,6 +28,7 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(EventsService.name);
 
   async onModuleInit() {
+    await this.snapshots.initialize();
     await this.closeExpired();
     this.timer = setInterval(() => {
       void this.closeExpired().catch((error: unknown) =>
@@ -85,6 +87,7 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
         )
         .exec();
     }
+    await this.snapshots.reconcile();
   }
 
   private validateDates(startDate: Date, endDate: Date) {
@@ -101,6 +104,7 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
     private readonly usersService: UsersService,
     private readonly notificationsService: NotificationsService,
     @InjectModel(Vote.name) private readonly voteModel: Model<Vote>,
+    private readonly snapshots: RankingSnapshotsService,
   ) {}
 
   async listMine(user: UserDocument) {
@@ -157,6 +161,8 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
           ? EventStatus.CLOSED
           : (dto.status ?? EventStatus.OPEN),
     });
+    if (event.status === EventStatus.CLOSED)
+      await this.snapshots.capture(event._id.toHexString());
     await this.notificationsService.eventIncluded(event, participants);
     return this.detail(event);
   }
@@ -212,6 +218,7 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
       )
       .exec();
     if (!event) throw new ConflictException('Event changed; retry the update');
+    if (event.status === EventStatus.CLOSED) await this.snapshots.capture(id);
     return this.detail(event);
   }
 
@@ -253,6 +260,7 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
       )
       .exec();
     if (!event) throw new ConflictException('Event changed; retry the update');
+    if (event.status === EventStatus.CLOSED) await this.snapshots.capture(id);
     return this.detail(event);
   }
 

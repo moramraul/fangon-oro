@@ -1,3 +1,4 @@
+import { RankingSnapshotsService } from '../rankings/snapshots/ranking-snapshots.service';
 import {
   BadRequestException,
   ConflictException,
@@ -40,6 +41,7 @@ describe('VotesService', () => {
   const events = { findOneAndUpdate: jest.fn(), updateOne: jest.fn() };
   const details = { getDetail: jest.fn() };
   const connection = { transaction: jest.fn() };
+  const snapshots = { capture: jest.fn() };
   let service: VotesService;
 
   beforeEach(() => {
@@ -78,6 +80,7 @@ describe('VotesService', () => {
       events as unknown as Model<Event>,
       connection as unknown as Connection,
       details as unknown as EventsService,
+      snapshots as unknown as RankingSnapshotsService,
     );
   });
 
@@ -164,6 +167,24 @@ describe('VotesService', () => {
       { session },
     );
   });
+  it('saves the snapshot in the final vote transaction', async () => {
+    votes.countDocuments.mockReturnValue({
+      session: jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue(4) }),
+    });
+    await service.cast(eventId.toHexString(), selections, user);
+    expect(snapshots.capture).toHaveBeenCalledWith(
+      eventId.toHexString(),
+      session,
+    );
+  });
+
+  it('does not snapshot provisional voting', async () => {
+    await service.cast(eventId.toHexString(), selections, user);
+    expect(snapshots.capture).not.toHaveBeenCalled();
+  });
+
   it('does not insert a vote when the event has closed', async () => {
     events.findOneAndUpdate.mockReturnValue({
       exec: jest.fn().mockResolvedValue(null),

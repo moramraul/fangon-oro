@@ -1,3 +1,4 @@
+import { RankingSnapshotsModule } from '../rankings/snapshots/ranking-snapshots.module';
 import { Module } from '@nestjs/common';
 import { EventsModule } from '../events/events.module';
 import { MongooseModule } from '@nestjs/mongoose';
@@ -10,6 +11,7 @@ import { RankingsService } from './rankings.service';
 
 @Module({
   imports: [
+    RankingSnapshotsModule,
     EventsModule,
     VotesModule,
     MongooseModule.forFeature([

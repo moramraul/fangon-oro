@@ -1,3 +1,4 @@
+import { RankingSnapshotsService } from '../rankings/snapshots/ranking-snapshots.service';
 import {
   BadRequestException,
   ConflictException,
@@ -37,6 +38,11 @@ describe('EventsService permissions and state rules', () => {
   const users = { findSummariesByIds: jest.fn() };
   const notifications = { eventIncluded: jest.fn() };
   const votes = { distinct: jest.fn(), collection: { name: 'votes' } };
+  const snapshots = {
+    initialize: jest.fn(),
+    reconcile: jest.fn(),
+    capture: jest.fn(),
+  };
   let service: EventsService;
 
   beforeEach(() => {
@@ -55,6 +61,7 @@ describe('EventsService permissions and state rules', () => {
       users as unknown as UsersService,
       notifications as unknown as NotificationsService,
       votes as unknown as Model<Vote>,
+      snapshots as unknown as RankingSnapshotsService,
     );
   });
 
@@ -229,6 +236,21 @@ describe('EventsService permissions and state rules', () => {
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
+  it('saves a snapshot after a manual closure', async () => {
+    model.findOneAndUpdate.mockReturnValue({
+      exec: jest
+        .fn()
+        .mockResolvedValue({ ...event, status: EventStatus.CLOSED }),
+    });
+    await service.setStatus(eventId.toHexString(), EventStatus.CLOSED);
+    expect(snapshots.capture).toHaveBeenCalledWith(eventId.toHexString());
+  });
+
+  it('recovers missing snapshots after automatic closures', async () => {
+    await service.closeExpired();
+    expect(snapshots.reconcile).toHaveBeenCalled();
+  });
+
   it('closes expired open events', async () => {
     await service.closeExpired();
     expect(model.updateMany).toHaveBeenCalledWith(
