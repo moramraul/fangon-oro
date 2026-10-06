@@ -68,7 +68,9 @@ async function load() {
     if (currentRequest !== requestId) return
     if (cause instanceof ApiError && cause.status === 401) auth.logout()
     error.value =
-      cause instanceof Error ? cause.message : 'No hemos podido cargar la clasificación.'
+      cause instanceof ApiError && cause.status === 409
+        ? 'Los resultados estarán disponibles cuando se cierre el evento.'
+        : cause instanceof Error ? cause.message : 'No hemos podido cargar la clasificación.'
   } finally {
     if (currentRequest === requestId) loading.value = false
   }
