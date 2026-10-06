@@ -121,16 +121,13 @@ onUnmounted(() => {
         <section
           v-for="award in data.awards"
           :key="award.id"
-          class="stats-card overview-panel"
+          class="stats-card"
           :aria-labelledby="`stats-${award.id}`"
         >
-          <span class="stats-emblem" aria-hidden="true">{{
-            award.id === 'anti-fangon' ? '◇' : '✦'
-          }}</span>
           <h2 :id="`stats-${award.id}`">{{ award.title }}</h2>
           <p class="stats-description">{{ award.description }}</p>
           <ul v-if="award.people.length" class="stats-people">
-            <li v-for="person in award.people" :key="person.id">
+            <li v-for="person in award.people.slice(0, 1)" :key="person.id">
               <div class="stats-avatar">
                 <img v-if="person.avatar" :src="person.avatar" alt="" />
                 <span v-else aria-hidden="true">{{ initials(person.name) }}</span>
@@ -139,24 +136,8 @@ onUnmounted(() => {
             </li>
           </ul>
           <p v-else class="stats-description">Todavía nadie ha recibido este tipo de voto.</p>
-          <p v-if="award.people.length" class="stats-count">
-            {{
-              {
-                'mister-five': 'Más 5 recibidos',
-                'mister-three': 'Más 3 recibidos',
-                'mister-one': 'Más 1 recibidos',
-                'anti-fangon': 'Menos Votado',
-              }[award.id]
-            }}
-          </p>
-          <p v-if="award.people.length > 1" class="stats-tie">Título compartido por empate</p>
         </section>
       </div>
-      <p class="stats-note">
-        Se incluyen las personas que han participado en eventos cerrados{{
-          selected === 'global' ? ' de todas las ediciones' : ' de esta edición'
-        }}. Los empates comparten título.
-      </p>
     </template>
   </section>
 </template>

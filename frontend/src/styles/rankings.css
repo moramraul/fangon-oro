@@ -1,6 +1,41 @@
 .rankings {
   padding: 24px 16px;
 }
+.rankings .overview-ranking li {
+  gap: 10px;
+  padding: 16px 0;
+  font-size: 16px;
+  line-height: 1.4;
+}
+.ranking-person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.ranking-person-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ranking-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  overflow: hidden;
+  border: 1px solid #d9b66545;
+  border-radius: 50%;
+  background: #d9b66512;
+  color: var(--gold);
+  font-size: 17px;
+}
+.ranking-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 .rankings-heading {
   margin: 28px 0 24px;
 }
@@ -24,8 +59,65 @@
   text-transform: none;
 }
 
-.ranking-event-cover {
-  margin-bottom: 18px;
+.ranking-selector {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  margin: 16px 0;
+  border-bottom: 1px solid #d9b66525;
+}
+.ranking-selector button {
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 10px 2px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.ranking-selector button[aria-pressed='true'] {
+  border-bottom-color: var(--gold);
+  color: #f3d68d;
+}
+.ranking-selector button:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: -2px;
+}
+.ranking-results {
+  position: relative;
+  transition: opacity 180ms ease;
+}
+.ranking-results--loading .overview-ranking {
+  opacity: 0.45;
+}
+.ranking-loading {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+.ranking-list-enter-active,
+.ranking-list-leave-active {
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
+}
+.ranking-list-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+.ranking-list-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ranking-results,
+  .ranking-list-enter-active,
+  .ranking-list-leave-active {
+    transition: none;
+  }
 }
 
 .rankings-history {
