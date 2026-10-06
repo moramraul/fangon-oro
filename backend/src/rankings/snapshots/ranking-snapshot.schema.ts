@@ -30,7 +30,7 @@ export class RankingSnapshot {
     image?: string | null;
     startDate: Date;
     endDate?: Date;
-    year: number;
+    editionId: string;
   };
 
   @Prop({ type: MongoSchema.Types.Mixed })

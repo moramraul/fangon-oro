@@ -1,5 +1,6 @@
 import { RankingSnapshotsModule } from '../rankings/snapshots/ranking-snapshots.module';
 import { Module } from '@nestjs/common';
+import { EditionsModule } from '../editions/editions.module';
 import { EventsModule } from '../events/events.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Event, EventSchema } from '../events/schemas/event.schema';
@@ -8,9 +9,12 @@ import { Vote, VoteSchema } from '../votes/schemas/vote.schema';
 import { VotesModule } from '../votes/votes.module';
 import { RankingsController } from './rankings.controller';
 import { RankingsService } from './rankings.service';
+import { StatsController } from './stats.controller';
+import { StatsService } from './stats.service';
 
 @Module({
   imports: [
+    EditionsModule,
     RankingSnapshotsModule,
     EventsModule,
     VotesModule,
@@ -20,7 +24,7 @@ import { RankingsService } from './rankings.service';
       { name: User.name, schema: UserSchema },
     ]),
   ],
-  controllers: [RankingsController],
-  providers: [RankingsService],
+  controllers: [RankingsController, StatsController],
+  providers: [RankingsService, StatsService],
 })
 export class RankingsModule {}

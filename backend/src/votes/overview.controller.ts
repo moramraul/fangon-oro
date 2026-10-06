@@ -1,4 +1,4 @@
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/authenticated-user';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UserDocument } from '../users/schemas/user.schema';
@@ -10,8 +10,11 @@ export class OverviewController {
   constructor(private readonly service: OverviewService) {}
 
   @Get()
-  overview(@CurrentUser() user: UserDocument) {
-    return this.service.overview(user);
+  overview(
+    @CurrentUser() user: UserDocument,
+    @Query('edition') edition?: string,
+  ) {
+    return this.service.overview(user, edition);
   }
 
   @Get('events/:id/results')

@@ -1,3 +1,4 @@
+import { EditionsService } from '../editions/editions.service';
 import { RankingSnapshotsService } from '../rankings/snapshots/ranking-snapshots.service';
 import {
   BadRequestException,
@@ -62,6 +63,9 @@ describe('EventsService permissions and state rules', () => {
       notifications as unknown as NotificationsService,
       votes as unknown as Model<Vote>,
       snapshots as unknown as RankingSnapshotsService,
+      {
+        createEvent: (data: unknown) => model.create(data) as Promise<unknown>,
+      } as unknown as EditionsService,
     );
   });
 

@@ -1,5 +1,6 @@
 import { RankingSnapshotsModule } from '../rankings/snapshots/ranking-snapshots.module';
 import { Module } from '@nestjs/common';
+import { EditionsModule } from '../editions/editions.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { EventsModule } from '../events/events.module';
 import { Event, EventSchema } from '../events/schemas/event.schema';
@@ -12,6 +13,7 @@ import { OverviewService } from './overview.service';
 
 @Module({
   imports: [
+    EditionsModule,
     RankingSnapshotsModule,
     EventsModule,
     MongooseModule.forFeature([

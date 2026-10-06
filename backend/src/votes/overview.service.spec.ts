@@ -1,198 +1,161 @@
-import { RankingSnapshotsService } from '../rankings/snapshots/ranking-snapshots.service';
 import { NotFoundException } from '@nestjs/common';
 import { Model, Types } from 'mongoose';
+import { EditionsService } from '../editions/editions.service';
 import { EventsService } from '../events/events.service';
 import { Event } from '../events/schemas/event.schema';
 import { UserDocument } from '../users/schemas/user.schema';
+import { RankingSnapshotsService } from '../rankings/snapshots/ranking-snapshots.service';
 import { Vote } from './schemas/vote.schema';
 import { OverviewService } from './overview.service';
-
-describe('OverviewService', () => {
-  const a = new Types.ObjectId();
-  const b = new Types.ObjectId();
-  const previous = {
-    _id: new Types.ObjectId(),
-    name: 'Anterior',
-    startDate: new Date('2026-06-01'),
-    endDate: new Date('2026-06-02'),
-    status: 'closed',
-    participants: [a, b],
-  };
-  const upcoming = {
-    _id: new Types.ObjectId(),
-    name: 'Nueva edición',
-    startDate: new Date('2027-02-01'),
-    endDate: new Date('2027-02-02'),
+describe('OverviewService with explicit editions', () => {
+  const userId = new Types.ObjectId();
+  const editionId = new Types.ObjectId();
+  const oldId = new Types.ObjectId();
+  const eventId = new Types.ObjectId();
+  const edition = {
+    _id: editionId,
+    name: 'Current',
+    number: 2027,
     status: 'open',
-    participants: [a],
+    opensAt: new Date('2026-12-20'),
+    expectedEndsAt: new Date('2027-12-31'),
   };
-  const events = { find: jest.fn(), findById: jest.fn() };
-  const votes = { aggregate: jest.fn(), distinct: jest.fn() };
-  const users = { find: jest.fn() };
-  const lifecycle = { closeExpired: jest.fn() };
-  const snapshots = { latest: jest.fn(), forEvent: jest.fn() };
-  const savedEntry = {
-    id: a.toHexString(),
-    name: 'Ana',
-    avatar: null,
+  const event = {
+    _id: eventId,
+    editionId,
+    name: 'Christmas',
+    startDate: new Date('2026-12-20'),
+    endDate: new Date('2026-12-21'),
+    status: 'closed',
+    participants: [userId],
+  };
+  const entry = {
+    id: userId.toHexString(),
+    name: 'Saved',
+    avatar: 'saved.jpg',
     points: 5,
     fivePointVotes: 1,
     threePointVotes: 0,
     percentage: 100,
     position: 1,
   };
-  const snapshot = {
-    calculatedAt: new Date('2026-06-02'),
-    editions: { 2026: [savedEntry] },
+  const events = { find: jest.fn(), findById: jest.fn() };
+  const votes = { distinct: jest.fn() };
+  const lifecycle = { closeExpired: jest.fn() };
+  const snapshots = { latest: jest.fn(), forEvent: jest.fn() };
+  const editions = {
+    current: jest.fn(),
+    find: jest.fn(),
+    summary: jest.fn(),
+    list: jest.fn(),
   };
   let service: OverviewService;
-
   beforeEach(() => {
-    jest.useFakeTimers().setSystemTime(new Date('2027-01-01T00:00:00Z'));
     jest.resetAllMocks();
-    snapshots.latest.mockResolvedValue(snapshot);
-    votes.distinct.mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
     events.find.mockReturnValue({
-      sort: jest.fn().mockReturnValue({
-        exec: jest.fn().mockResolvedValue([upcoming, previous]),
-      }),
-    });
-    votes.aggregate.mockReturnValue({
-      exec: jest
+      sort: jest
         .fn()
-        .mockResolvedValue([
-          { _id: a, points: 5, fivePointVotes: 1, threePointVotes: 0 },
-        ]),
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue([event]) }),
     });
-    users.find.mockReturnValue({
-      select: jest.fn().mockReturnValue({
-        exec: jest.fn().mockResolvedValue([
-          { _id: a, name: 'Ana' },
-          { _id: b, name: 'Bea' },
-        ]),
-      }),
+    votes.distinct.mockReturnValue({
+      exec: jest.fn().mockResolvedValue([eventId]),
+    });
+    editions.current.mockResolvedValue(edition);
+    editions.summary.mockReturnValue({
+      id: editionId.toHexString(),
+      name: edition.name,
+      number: 2027,
+    });
+    editions.list.mockResolvedValue([]);
+    snapshots.latest.mockResolvedValue({
+      editions: { [editionId.toHexString()]: [entry] },
     });
     service = new OverviewService(
       events as unknown as Model<Event>,
       votes as unknown as Model<Vote>,
       lifecycle as unknown as EventsService,
       snapshots as unknown as RankingSnapshotsService,
+      editions as unknown as EditionsService,
     );
   });
-  afterEach(() => jest.useRealTimers());
-
-  it('reads saved standings and date without aggregating votes', async () => {
-    const result = await service.overview({ _id: a } as UserDocument);
+  it('includes Christmas in the newly active edition independent of the calendar year', async () => {
+    const result = await service.overview({ _id: userId } as UserDocument);
     expect(result.year).toBe(2027);
-    expect(result.rankingYear).toBe(2026);
-    expect(result.calculatedAt).toBe(snapshot.calculatedAt.toISOString());
-    expect(result.standings).toEqual([{ ...savedEntry, rank: 1 }]);
-    expect(result.events.map((event) => event.id)).toEqual([
-      upcoming._id.toHexString(),
-    ]);
-    expect(votes.aggregate).not.toHaveBeenCalled();
-    expect(users.find).not.toHaveBeenCalled();
-  });
-
-  it('keeps the latest classification until another event closes, including after deleting original events', async () => {
-    jest.setSystemTime(upcoming.startDate);
-    events.find.mockReturnValue({
-      sort: jest
-        .fn()
-        .mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }),
-    });
-    const result = await service.overview({ _id: a } as UserDocument);
-    expect(result.rankingYear).toBe(2026);
-    expect(result.standings[0].points).toBe(5);
-    expect(votes.aggregate).not.toHaveBeenCalled();
-  });
-
-  it('returns no standings before the first snapshot', async () => {
-    snapshots.latest.mockResolvedValue(null);
-    const result = await service.overview({ _id: a } as UserDocument);
-    expect(result.standings).toEqual([]);
-    expect(result.calculatedAt).toBeNull();
-  });
-
-  it('marks voted events for the current user in the overview', async () => {
-    votes.distinct.mockReturnValue({
-      exec: jest.fn().mockResolvedValue([upcoming._id]),
-    });
-    const result = await service.overview({ _id: a } as UserDocument);
+    expect(events.find).toHaveBeenCalledWith({ editionId });
     expect(result.events[0].hasVoted).toBe(true);
-    expect(votes.distinct).toHaveBeenCalledWith('eventId', { voterId: a });
+    expect(result.standings[0]).toMatchObject({ name: 'Saved', rank: 1 });
   });
-
-  it('reads the closed event photo and standings without querying deleted users or votes', async () => {
-    jest.setSystemTime(new Date('2026-10-06'));
+  it('starts from zero when only previous edition snapshots exist', async () => {
+    snapshots.latest.mockResolvedValue({
+      editions: { [oldId.toHexString()]: [entry] },
+    });
+    expect(
+      (await service.overview({ _id: userId } as UserDocument)).standings,
+    ).toEqual([]);
+  });
+  it('reads previous final rankings and historical totals', async () => {
+    editions.find.mockResolvedValue({
+      ...edition,
+      _id: oldId,
+      status: 'closed',
+      finalRanking: { entries: [entry] },
+    });
+    expect(
+      (
+        await service.overview(
+          { _id: userId } as UserDocument,
+          oldId.toHexString(),
+        )
+      ).standings[0].name,
+    ).toBe('Saved');
+    snapshots.latest.mockResolvedValue({
+      generalRanking: { entries: [entry] },
+    });
+    expect(
+      (await service.overview({ _id: userId } as UserDocument, 'global')).scope,
+    ).toBe('global');
+  });
+  it('reads final event names and photos without users or ballots, including earlier editions', async () => {
     events.findById.mockReturnValue({
-      exec: jest.fn().mockResolvedValue({
-        ...previous,
-        name: 'Renamed event',
-        participants: [],
-      }),
+      exec: jest.fn().mockResolvedValue(event),
     });
     snapshots.forEvent.mockResolvedValue({
-      event: { name: 'Original event', image: 'original.jpg' },
-      eventRanking: { entries: [savedEntry] },
-      calculatedAt: snapshot.calculatedAt,
+      event: { name: 'Original', image: 'original.jpg' },
+      eventRanking: { entries: [entry] },
     });
-    const result = await service.results(previous._id.toHexString());
-    expect(result).toMatchObject({
-      name: 'Original event',
+    expect(await service.results(eventId.toHexString())).toMatchObject({
+      name: 'Original',
       image: 'original.jpg',
-      calculatedAt: snapshot.calculatedAt.toISOString(),
-      standings: [{ ...savedEntry, rank: 1 }],
+      editionId: editionId.toHexString(),
+      standings: [{ ...entry, rank: 1 }],
     });
-    expect(users.find).not.toHaveBeenCalled();
-    expect(votes.aggregate).not.toHaveBeenCalled();
   });
-
-  it('supports existing snapshots without a saved cover', async () => {
-    jest.setSystemTime(new Date('2026-10-06'));
+  it('does not expose results while voting is open', async () => {
     events.findById.mockReturnValue({
-      exec: jest.fn().mockResolvedValue({ ...previous, image: 'existing.jpg' }),
+      exec: jest.fn().mockResolvedValue({ ...event, status: 'open' }),
     });
-    snapshots.forEvent.mockResolvedValue({
-      eventRanking: { entries: [savedEntry] },
+    await expect(service.results(eventId.toHexString())).rejects.toMatchObject({
+      status: 409,
     });
-    expect((await service.results(previous._id.toHexString())).image).toBe(
-      'existing.jpg',
-    );
-  });
-
-  it('does not calculate closed results if a snapshot is missing', async () => {
-    jest.setSystemTime(new Date('2026-10-06'));
-    events.findById.mockReturnValue({
-      exec: jest.fn().mockResolvedValue(previous),
-    });
-    snapshots.forEvent.mockResolvedValue(null);
-    await expect(
-      service.results(previous._id.toHexString()),
-    ).rejects.toMatchObject({ status: 503 });
-    expect(votes.aggregate).not.toHaveBeenCalled();
-  });
-
-  it('rejects open results without accessing votes, users or snapshots', async () => {
-    events.findById.mockReturnValue({
-      exec: jest.fn().mockResolvedValue(upcoming),
-    });
-    await expect(
-      service.results(upcoming._id.toHexString()),
-    ).rejects.toMatchObject({ status: 409 });
-    expect(votes.aggregate).not.toHaveBeenCalled();
-    expect(users.find).not.toHaveBeenCalled();
     expect(snapshots.forEvent).not.toHaveBeenCalled();
   });
-
-  it('rejects results from old editions and malformed event IDs', async () => {
+  it('does not recalculate a missing final snapshot', async () => {
     events.findById.mockReturnValue({
-      exec: jest.fn().mockResolvedValue(previous),
+      exec: jest.fn().mockResolvedValue(event),
     });
-    await expect(
-      service.results(previous._id.toHexString()),
-    ).rejects.toBeInstanceOf(NotFoundException);
+    snapshots.forEvent.mockResolvedValue(null);
+    await expect(service.results(eventId.toHexString())).rejects.toMatchObject({
+      status: 503,
+    });
+  });
+  it('rejects malformed and unassigned event IDs', async () => {
     await expect(service.results('invalid')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    events.findById.mockReturnValue({
+      exec: jest.fn().mockResolvedValue(null),
+    });
+    await expect(service.results(eventId.toHexString())).rejects.toBeInstanceOf(
       NotFoundException,
     );
   });

@@ -1,4 +1,5 @@
 import { RankingSnapshotsService } from '../rankings/snapshots/ranking-snapshots.service';
+import { EditionsService } from '../editions/editions.service';
 import {
   BadRequestException,
   ConflictException,
@@ -105,6 +106,7 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
     private readonly notificationsService: NotificationsService,
     @InjectModel(Vote.name) private readonly voteModel: Model<Vote>,
     private readonly snapshots: RankingSnapshotsService,
+    private readonly editions: EditionsService,
   ) {}
 
   async listMine(user: UserDocument) {
@@ -148,7 +150,7 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
     const participants = await this.validateParticipants(
       dto.participantIds ?? [],
     );
-    const event = await this.eventModel.create({
+    const event = await this.editions.createEvent({
       name: dto.name,
       image: dto.image,
       startDate,
@@ -161,8 +163,6 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
           ? EventStatus.CLOSED
           : (dto.status ?? EventStatus.OPEN),
     });
-    if (event.status === EventStatus.CLOSED)
-      await this.snapshots.capture(event._id.toHexString());
     await this.notificationsService.eventIncluded(event, participants);
     return this.detail(event);
   }
@@ -320,6 +320,7 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
           : 'draft';
     return {
       id: event._id.toHexString(),
+      editionId: event.editionId?.toHexString() ?? null,
       name: event.name,
       image: event.image ?? null,
       startDate: startDate?.toISOString() ?? null,

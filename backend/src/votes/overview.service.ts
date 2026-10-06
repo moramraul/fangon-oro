@@ -1,3 +1,4 @@
+import { EditionsService } from '../editions/editions.service';
 import { RankingSnapshotsService } from '../rankings/snapshots/ranking-snapshots.service';
 import {
   ConflictException,
@@ -14,7 +15,6 @@ import {
   EventStatus,
 } from '../events/schemas/event.schema';
 import { UserDocument } from '../users/schemas/user.schema';
-import { editionYear } from './edition';
 import { Vote } from './schemas/vote.schema';
 
 @Injectable()
@@ -24,50 +24,69 @@ export class OverviewService {
     @InjectModel(Vote.name) private readonly votes: Model<Vote>,
     private readonly eventsService: EventsService,
     private readonly snapshots: RankingSnapshotsService,
+    private readonly editions: EditionsService,
   ) {}
 
   private start(event: EventDocument) {
     return event.startDate ?? event.date;
   }
 
-  async overview(user: UserDocument) {
+  async overview(user: UserDocument, selection?: string) {
     await this.eventsService.closeExpired();
-    const now = new Date();
-    const year = editionYear(now);
-    const events = await this.events.find().sort({ startDate: -1 }).exec();
+    const scope = selection === 'global' ? 'global' : 'edition';
+    const edition =
+      scope === 'global'
+        ? null
+        : selection
+          ? await this.editions.find(selection)
+          : await this.editions.current();
+    const editionId = edition?._id.toHexString();
+    const events = await this.events
+      .find(
+        scope === 'global'
+          ? { status: EventStatus.CLOSED, editionId: { $exists: true } }
+          : { editionId: edition?._id },
+      )
+      .sort({ startDate: -1 })
+      .exec();
     const votedEventIds = new Set(
       (await this.votes.distinct('eventId', { voterId: user._id }).exec()).map(
         (id: Types.ObjectId) => id.toHexString(),
       ),
     );
     const snapshot = await this.snapshots.latest();
-    const availableYears = Object.keys(snapshot?.editions ?? {}).map(Number);
-    const rankingYear = availableYears.length
-      ? Math.max(...availableYears)
-      : year;
-    const standings = snapshot?.editions?.[rankingYear] ?? [];
+    const standings =
+      scope === 'global'
+        ? (snapshot?.generalRanking?.entries ?? [])
+        : edition?.status === 'closed'
+          ? (edition.finalRanking?.entries ?? [])
+          : (snapshot?.editions?.[editionId!] ?? []);
     return {
-      year,
-      rankingYear,
-      serverTime: now.toISOString(),
-      calculatedAt: snapshot?.calculatedAt?.toISOString() ?? null,
+      scope,
+      edition: edition ? this.editions.summary(edition) : null,
+      editions: await this.editions.list(),
+      year: edition?.number ?? null,
+      rankingYear: edition?.number ?? null,
+      serverTime: new Date().toISOString(),
+      calculatedAt:
+        edition?.status === 'closed'
+          ? (edition.closedAt?.toISOString() ?? null)
+          : scope === 'global' || (editionId && snapshot?.editions?.[editionId])
+            ? (snapshot?.calculatedAt?.toISOString() ?? null)
+            : null,
       standings: standings.map((entry) => ({ ...entry, rank: entry.position })),
-      events: events
-        .filter((event) => {
-          const start = this.start(event);
-          return start && editionYear(start) === year;
-        })
-        .map((event) => ({
-          id: event._id.toHexString(),
-          name: event.name,
-          image: event.image ?? null,
-          startDate: this.start(event).toISOString(),
-          endDate: event.endDate?.toISOString() ?? null,
-          status: event.status,
-          participantCount: event.participants.length,
-          canVote: event.participants.some((id) => id.equals(user._id)),
-          hasVoted: votedEventIds.has(event._id.toHexString()),
-        })),
+      events: events.map((event) => ({
+        id: event._id.toHexString(),
+        editionId: event.editionId.toHexString(),
+        name: event.name,
+        image: event.image ?? null,
+        startDate: this.start(event).toISOString(),
+        endDate: event.endDate?.toISOString() ?? null,
+        status: event.status,
+        participantCount: event.participants.length,
+        canVote: event.participants.some((id) => id.equals(user._id)),
+        hasVoted: votedEventIds.has(event._id.toHexString()),
+      })),
     };
   }
 
@@ -76,11 +95,7 @@ export class OverviewService {
       throw new NotFoundException('Event not found');
     await this.eventsService.closeExpired();
     const event = await this.events.findById(id).exec();
-    if (
-      !event ||
-      !this.start(event) ||
-      editionYear(this.start(event)) !== editionYear(new Date())
-    )
+    if (!event || !event.editionId)
       throw new NotFoundException('Event not found');
     if (event.status === EventStatus.CLOSED) {
       const snapshot = await this.snapshots.forEvent(event._id.toHexString());
@@ -90,6 +105,7 @@ export class OverviewService {
         );
       return {
         id,
+        editionId: event.editionId.toHexString(),
         name: snapshot.event?.name ?? event.name,
         image:
           snapshot.event?.image === undefined

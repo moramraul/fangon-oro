@@ -13,6 +13,8 @@ export type EventDocument = HydratedDocument<Event>;
 
 @Schema({ timestamps: true })
 export class Event {
+  @Prop({ type: MongoSchema.Types.ObjectId, ref: 'Edition', required: true })
+  editionId!: Types.ObjectId;
   @Prop({ required: true, trim: true, maxlength: 100 })
   name!: string;
 
@@ -57,3 +59,4 @@ export const EventSchema = SchemaFactory.createForClass(Event);
 EventSchema.index({ participants: 1, startDate: -1 });
 
 EventSchema.index({ status: 1, endDate: 1 });
+EventSchema.index({ editionId: 1, status: 1 });

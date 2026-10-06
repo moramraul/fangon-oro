@@ -20,6 +20,7 @@ function query(value: unknown) {
 
 describe('RankingSnapshotsService', () => {
   const id = new Types.ObjectId();
+  const editionId = new Types.ObjectId();
   const userId = new Types.ObjectId();
   const session = {} as ClientSession;
   const snapshots = {
@@ -47,6 +48,7 @@ describe('RankingSnapshotsService', () => {
       query({
         _id: id,
         name: 'Evento',
+        editionId,
         status: EventStatus.CLOSED,
         startDate: new Date('2026-10-01'),
         participants: [userId],
@@ -76,7 +78,7 @@ describe('RankingSnapshotsService', () => {
     expect(saved.event).toMatchObject({
       id: id.toHexString(),
       name: 'Evento',
-      year: 2026,
+      editionId: editionId.toHexString(),
     });
     expect(saved.eventRanking?.entries[0]).toMatchObject({
       name: 'Ana',
@@ -85,7 +87,7 @@ describe('RankingSnapshotsService', () => {
       position: 1,
     });
     expect(saved.generalRanking?.totalPoints).toBe(9);
-    expect(saved.editions?.['2026'][0].points).toBe(9);
+    expect(saved.editions?.[editionId.toHexString()][0].points).toBe(9);
     expect(snapshots.create.mock.calls[0][1]).toEqual({ session });
     expect(snapshots.findOneAndUpdate).toHaveBeenCalledWith(
       { key: '__lock__' },
@@ -108,7 +110,7 @@ describe('RankingSnapshotsService', () => {
     snapshots.find.mockReturnValue(
       query([
         {
-          event: { year: 2026 },
+          event: { editionId: editionId.toHexString() },
           eventRanking: { entries: [prior] },
           generalRanking: {
             totalPoints: 9999,
@@ -124,7 +126,7 @@ describe('RankingSnapshotsService', () => {
       fivePointVotes: 2,
       threePointVotes: 1,
     });
-    expect(saved.editions?.['2026'][0].points).toBe(14);
+    expect(saved.editions?.[editionId.toHexString()][0].points).toBe(14);
     expect(events.findOne).toHaveBeenCalledTimes(1);
     // Only the new event's ballots are read; historical totals come from its
     // event snapshot, never from the previous general ranking or live ballots.
@@ -154,6 +156,7 @@ describe('RankingSnapshotsService', () => {
     expect(await service.latest()).toEqual({ revision: 7 });
     expect(snapshots.findOne).toHaveBeenCalledWith({
       key: { $ne: '__lock__' },
+      'event.editionId': { $exists: true },
     });
     expect(chain.sort).toHaveBeenCalledWith({ revision: -1 });
   });

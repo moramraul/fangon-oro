@@ -1,5 +1,6 @@
 import { RankingSnapshotsModule } from '../rankings/snapshots/ranking-snapshots.module';
 import { Module } from '@nestjs/common';
+import { EditionsModule } from '../editions/editions.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { UsersModule } from '../users/users.module';
 import { NotificationsModule } from '../notifications/notifications.module';
@@ -10,6 +11,7 @@ import { Vote, VoteSchema } from '../votes/schemas/vote.schema';
 
 @Module({
   imports: [
+    EditionsModule,
     RankingSnapshotsModule,
     MongooseModule.forFeature([
       { name: Event.name, schema: EventSchema },

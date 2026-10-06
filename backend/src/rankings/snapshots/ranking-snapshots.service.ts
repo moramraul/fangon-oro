@@ -3,7 +3,6 @@ import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { ClientSession, Connection, Model, Types } from 'mongoose';
 import { Event, EventStatus } from '../../events/schemas/event.schema';
 import { User } from '../../users/schemas/user.schema';
-import { editionYear } from '../../votes/edition';
 import { pointsPipeline } from '../../votes/points.pipeline';
 import { Score } from '../../votes/score';
 import { Vote } from '../../votes/schemas/vote.schema';
@@ -21,12 +20,13 @@ export class RankingSnapshotsService {
     @InjectConnection() private readonly connection: Connection,
   ) {}
 
-  async latest() {
-    return this.snapshots
-      .findOne({ key: { $ne: '__lock__' } })
-      .sort({ revision: -1 })
-      .lean()
-      .exec();
+  async latest(session?: ClientSession) {
+    const query = this.snapshots.findOne({
+      key: { $ne: '__lock__' },
+      'event.editionId': { $exists: true },
+    });
+    if (session) query.session(session);
+    return query.sort({ revision: -1 }).lean().exec();
   }
 
   async forEvent(eventId: string) {
@@ -37,7 +37,7 @@ export class RankingSnapshotsService {
   async reconcile() {
     const [closed, saved] = await Promise.all([
       this.events
-        .find({ status: EventStatus.CLOSED })
+        .find({ status: EventStatus.CLOSED, editionId: { $exists: true } })
         .sort({ endDate: 1, _id: 1 })
         .select('_id')
         .lean()
@@ -76,6 +76,8 @@ export class RankingSnapshotsService {
       .session(session)
       .exec();
     if (!event) return;
+    if (!event.editionId) throw new Error('Event has no edition assigned');
+    const editionId = event.editionId.toHexString();
     const startDate = event.startDate ?? event.date;
     if (!startDate)
       throw new Error(`Closed event ${eventId} has no start date`);
@@ -121,25 +123,22 @@ export class RankingSnapshotsService {
       .session(session)
       .exec();
     const previous = await this.snapshots
-      .find({ key: { $ne: '__lock__' } })
+      .find({ key: { $ne: '__lock__' }, 'event.editionId': { $exists: true } })
       .sort({ revision: 1 })
       .session(session)
       .lean()
       .exec();
-    const contributions = [
-      ...previous,
-      { event: { year: editionYear(startDate) }, eventRanking },
-    ];
+    const contributions = [...previous, { event: { editionId }, eventRanking }];
     const generalRanking = this.combine(
       contributions.flatMap((snapshot) => snapshot.eventRanking?.entries ?? []),
     );
     const editions: Record<string, SnapshotEntry[]> = {};
-    for (const year of new Set(
-      contributions.map((snapshot) => snapshot.event!.year),
+    for (const id of new Set(
+      contributions.map((snapshot) => snapshot.event!.editionId),
     )) {
-      editions[year] = this.combine(
+      editions[id] = this.combine(
         contributions
-          .filter((snapshot) => snapshot.event!.year === year)
+          .filter((snapshot) => snapshot.event!.editionId === id)
           .flatMap((snapshot) => snapshot.eventRanking!.entries),
       ).entries as SnapshotEntry[];
     }
@@ -157,7 +156,7 @@ export class RankingSnapshotsService {
             image: event.image ?? null,
             startDate,
             endDate: event.endDate,
-            year: editionYear(startDate),
+            editionId,
           },
           eventRanking,
           generalRanking,
