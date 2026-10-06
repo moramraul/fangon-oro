@@ -3,39 +3,22 @@
 }
 .overview-hero {
   position: relative;
-  min-height: 540px;
   overflow: hidden;
-  display: flex;
-  align-items: flex-end;
 }
 .overview-art {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(0deg, #0d0c09 0%, transparent 35%),
-    url('/images/fangon-edition.png') center 33% / auto 1250px no-repeat;
-}
-.overview-hero-caption {
-  position: relative;
+  display: block;
   width: 100%;
-  padding: 180px 24px 24px;
-  background: linear-gradient(0deg, #0d0c09 10%, transparent);
-  text-align: center;
+  height: auto;
 }
-.overview-edition {
-  color: var(--gold);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 4px;
-}
-.overview-hero h1 {
-  font-size: 38px;
-  color: #f3d68d;
-  text-shadow: 0 2px 15px #000;
-}
-.overview-hero p {
-  font-size: 12px;
-  color: #ccc2aa;
+.overview-hero-title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 .overview-content {
   padding: 0 16px 24px;
@@ -272,9 +255,6 @@
   line-height: 1.6;
 }
 @media (max-width: 370px) {
-  .overview-hero {
-    min-height: 440px;
-  }
   .overview-panel h2 {
     font-size: 16px;
   }

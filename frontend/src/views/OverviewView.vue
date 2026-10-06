@@ -132,12 +132,15 @@ onUnmounted(() => {
 <template>
   <section class="overview" aria-label="Vista general del Fangón de Oro" :aria-busy="loading">
     <header class="overview-hero">
-      <div class="overview-art" aria-hidden="true"></div>
-      <div class="overview-hero-caption">
-        <span class="overview-edition">{{ data?.edition.name ?? 'EDICIÓN ACTUAL' }}</span>
-        <h1>¿Quién será<br />el ganador?</h1>
-        <p>Un año de historias. Un Fangón de Oro.</p>
-      </div>
+      <img
+        class="overview-art"
+        src="/images/fangon-home-2026.png"
+        alt="Ganador anónimo levantando el trofeo del Fangón de Oro 2026"
+        width="1024"
+        height="1411"
+        fetchpriority="high"
+      />
+      <h1 class="overview-hero-title">Fangón de Oro 2026: ¿Quién será el ganador?</h1>
     </header>
     <div class="overview-content">
       <p v-if="loading" class="overview-message" role="status">Cargando la edición…</p>
