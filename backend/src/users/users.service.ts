@@ -11,12 +11,14 @@ import { Model, Types } from 'mongoose';
 
 import { registerDto } from '../auth/dto/register.dto';
 import { User, UserDocument } from './schemas/user.schema';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectModel(User.name)
     private readonly userModel: Model<UserDocument>,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async create(registerDto: registerDto) {
@@ -131,16 +133,19 @@ export class UsersService {
       .findByIdAndUpdate(
         id,
         { $set: { isActive } },
-        { new: true, runValidators: true },
+        { new: false, runValidators: true },
       )
       .exec();
     if (!user) throw new NotFoundException('User not found');
+    if (isActive && !user.isActive) {
+      await this.notifications.accountActivated(user);
+    }
     return {
       id: user._id.toHexString(),
       name: user.name,
       email: user.email,
       role: user.role,
-      isActive: user.isActive,
+      isActive,
     };
   }
 

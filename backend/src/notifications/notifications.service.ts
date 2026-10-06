@@ -146,6 +146,41 @@ export class NotificationsService {
       );
     }
   }
+  async accountActivated(user: { name: string; email: string }): Promise<void> {
+    if (!this.transport) return;
+    const url = this.frontendUrl
+      ? `${this.frontendUrl.split('#')[0]}#/login`
+      : undefined;
+    try {
+      await this.transport.sendMail({
+        from: this.from,
+        to: { name: user.name, address: user.email },
+        subject: 'Tu cuenta ya está activa · Fangón de Oro',
+        attachments: [
+          {
+            filename: 'emblema.png',
+            path: join(__dirname, 'assets/emblema.png'),
+            cid: 'fangon-emblema',
+          },
+        ],
+        text: [
+          `Hola ${user.name},`,
+          '',
+          'El administrador ha activado tu cuenta. Ya puedes iniciar sesión en Fangón de Oro.',
+          ...(url ? ['', `Inicia sesión: ${url}`] : []),
+        ].join('\n'),
+        html: mailTemplate(
+          'Tu cuenta ya está activa.',
+          `<p>Hola ${escapeHtml(user.name)},</p><p>El administrador ha activado tu cuenta.</p><p>Ya puedes iniciar sesión en Fangón de Oro.</p>`,
+          url,
+          'INICIAR SESIÓN',
+        ),
+      });
+    } catch {
+      this.logger.error('Account activation email failed');
+    }
+  }
+
   async passwordRecovery(user: { name: string; email: string }, url: string) {
     if (!this.transport) return;
     try {

@@ -6,11 +6,13 @@ import { AuthModule } from './auth/auth.module';
 import { EventsModule } from './events/events.module';
 import { VotesModule } from './votes/votes.module';
 import { RankingsModule } from './rankings/rankings.module';
+import { resolve } from 'node:path';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: resolve(__dirname, '../.env'),
     }),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
