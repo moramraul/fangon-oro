@@ -1,4 +1,14 @@
-# Correo de inclusión en eventos
+# Notificaciones por correo
+
+## Confirmación de activación de cuenta
+
+Al registrarse se muestra: «Pendiente de activación por parte del administrador. Recibirás un correo de confirmación.»
+
+Cuando el administrador cambia una cuenta de inactiva a activa, se envía un correo individual confirmando que ya puede iniciar sesión. Utiliza la plantilla de Fangón de Oro y, si está definido `FRONTEND_URL`, incluye un botón para iniciar sesión. Repetir la activación de una cuenta ya activa o desactivarla no envía correo. Una nueva activación después de desactivarla vuelve a enviar el aviso.
+
+Requiere la misma configuración SMTP y `MAIL_ENABLED=true` descritos abajo. Un fallo de envío se registra sin revertir la activación. No hay reintentos automáticos ni avisos retroactivos a cuentas ya activas.
+
+## Inclusión en eventos
 
 Se envía un correo individual a cada participante al crear un evento con participantes y a los nuevos participantes al actualizar su lista. No se reenvía al guardar una lista idéntica, quitar participantes o editar los demás datos. Si se elimina a alguien y después se vuelve a incluir, recibe un nuevo aviso.
 
