@@ -49,6 +49,14 @@ export async function request<T>(
     )
   }
   if (!response.ok) {
+    if (response.status === 429) {
+      const seconds = Number(response.headers.get('Retry-After'))
+      const wait =
+        Number.isFinite(seconds) && seconds > 0
+          ? ` Espera ${Math.ceil(seconds / 60)} ${seconds <= 60 ? 'minuto' : 'minutos'} antes de volver a probar.`
+          : ' Espera unos minutos antes de volver a probar.'
+      throw new ApiError(429, `Demasiados intentos.${wait}`)
+    }
     if (path === '/auth/reset-password' && response.status === 400) {
       throw new ApiError(400, 'El enlace no es válido o ha caducado. Solicita uno nuevo.')
     }
@@ -59,7 +67,6 @@ export async function request<T>(
         ? 'Tu cuenta está desactivada. Contacta con un administrador para activarla.'
         : 'No tienes permisos para realizar esta operación.',
       409: 'Ya existe una cuenta con este correo. Inicia sesión.',
-      429: 'Demasiados intentos. Espera un momento antes de volver a probar.',
     }
     if (path === '/auth/google' && response.status === 401) {
       throw new ApiError(

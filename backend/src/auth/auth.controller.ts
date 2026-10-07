@@ -5,6 +5,7 @@ import { UserDocument } from '../users/schemas/user.schema';
 
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { AuthRateLimitGuard } from './guards/auth-rate-limit.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { LoginDto } from './dto/login.dto';
 import { registerDto } from './dto/register.dto';
@@ -17,6 +18,7 @@ import {
 } from './dto/password-recovery.dto';
 
 @Controller('auth')
+@UseGuards(AuthRateLimitGuard)
 export class AuthController {
   constructor(
     private readonly authService: AuthService,

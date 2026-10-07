@@ -40,16 +40,16 @@ Devuelve el mismo formato o null si todav?a no ha votado. No se exponen votacion
 interface EventResults {
   eventId: string;
   status: 'open' | 'closed';
-  totalVotes: number; // votaciones emitidas, no asignaciones ni puntos
+  totalVotes: number | null; // votaciones emitidas, no asignaciones ni puntos
   totalPoints: number;
   participantCount: number;
-  participationPercentage: number;
+  participationPercentage: number | null;
   candidates: { id: string; name: string; points: number; percentage: number }[];
   leaderIds: string[];
 }
 ```
 
-Cada nueva votaci?n suma nueve puntos y cuenta como una participaci?n. Los candidatos se ordenan por puntos descendentes, despu?s por n?mero de votos de 5 y despu?s de 3, incluyendo candidatos con cero puntos. Los porcentajes de candidatos se calculan sobre totalPoints y se redondean a dos decimales. Sin puntos no hay l?deres. Los resultados de eventos abiertos son provisionales.
+Cada nueva votaci?n suma nueve puntos y cuenta como una participaci?n. Los candidatos se ordenan por puntos descendentes, despu?s por n?mero de votos de 5 y despu?s de 3, incluyendo candidatos con cero puntos. Los porcentajes de candidatos se calculan sobre totalPoints y se redondean a dos decimales. Sin puntos no hay l?deres. Los eventos abiertos no exponen resultados.
 
 Las clasificaciones por evento y general utilizan la misma suma de puntos; ver rankings-api.md.
 
@@ -62,3 +62,7 @@ Se necesita MongoDB Atlas o un replica set con soporte de transacciones. Los tes
 Los documentos antiguos con votedUserId siguen ley?ndose como una asignaci?n de un punto, tanto en el voto propio como en resultados y clasificaciones. No se inventan los otros dos candidatos ni se modifican esos documentos. Los nuevos env?os usan exclusivamente candidateIds. Es un cambio de contrato: las entradas de candidatos y clasificaciones ahora exponen points y las clasificaciones totalPoints.
 
 El desempate se aplica en resultados, clasificaci?n del evento y clasificaci?n general: puntos totales, n?mero de votos de 5 (`fivePointVotes`) y n?mero de votos de 3 (`threePointVotes`), todos descendentes. Ambos contadores se incluyen en cada candidato o entrada. Si coinciden los tres valores, comparten posici?n y, si encabezan la clasificaci?n, aparecen juntos en `leaderIds`. El ID solo estabiliza el orden visual; no rompe el empate. Los votos antiguos de un punto no incrementan ninguno de estos contadores.
+
+Los resultados de eventos cerrados se leen del snapshot, conservando participantes, nombres, puntos y posiciones aunque se eliminen usuarios o votos. Los snapshots nuevos guardan los contadores de votos y participantes; los antiguos sin contador de votos devuelven totalVotes y participationPercentage como null. Los eventos abiertos solo permiten votar o consultar el voto propio; los resultados devuelven 409 hasta el cierre.
+
+No se calculan clasificaciones temporales. Los snapshots se generan exclusivamente al cerrar un evento. Las rutas de resultados rechazan eventos abiertos con 409, incluso para ADMIN. La consulta del voto propio y el formulario de votacion mantienen su funcionamiento.
