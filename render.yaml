@@ -1,0 +1,44 @@
+# Free staging deployment. Fill URLs in the dashboard after services are created.
+services:
+  - type: web
+    name: fangon-staging-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    rootDir: backend
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: node dist/main.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        sync: false
+      - key: MAIL_ENABLED
+        value: "false"
+
+  - type: web
+    name: fangon-staging-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci --include=dev && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: VITE_API_URL
+        sync: false
+      - key: VITE_API_TIMEOUT_MS
+        value: "90000"
+      - key: VITE_GOOGLE_CLIENT_ID
+        value: ""
+    headers:
+      - path: /*
+        name: X-Robots-Tag
+        value: noindex, nofollow

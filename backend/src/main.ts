@@ -6,6 +6,14 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.enableShutdownHooks();
+  const frontendUrl = process.env.FRONTEND_URL?.trim();
+  if (frontendUrl) {
+    app.enableCors({
+      origin: new URL(frontendUrl).origin,
+      exposedHeaders: ['Retry-After'],
+    });
+  }
   // Only explicitly trusted proxy addresses/subnets may supply client IPs.
   const trustedProxies = process.env.TRUSTED_PROXY_IPS?.trim();
   if (trustedProxies)

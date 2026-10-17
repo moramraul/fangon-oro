@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import AuthHero from '../components/auth/AuthHero.vue'
-import { request } from '../api'
+import { request, REQUEST_TIMEOUT_MS } from '../api'
 import { useAuthStore } from '../stores/auth'
 const props = defineProps<{ reset: boolean }>()
 const auth = useAuthStore()
@@ -43,7 +43,7 @@ async function submit() {
       props.reset ? '/auth/reset-password' : '/auth/forgot-password',
       {
         method: 'POST',
-        signal: AbortSignal.timeout(45000),
+        signal: AbortSignal.timeout(Math.max(45000, REQUEST_TIMEOUT_MS)),
         body: JSON.stringify(
           props.reset
             ? { token: token(), password: password.value }

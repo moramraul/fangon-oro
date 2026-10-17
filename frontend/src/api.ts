@@ -27,6 +27,11 @@ export class ApiError extends Error {
   }
 }
 const baseUrl = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '')
+const configuredTimeout = Number(import.meta.env.VITE_API_TIMEOUT_MS)
+export const REQUEST_TIMEOUT_MS =
+  Number.isInteger(configuredTimeout) && configuredTimeout >= 1000 && configuredTimeout <= 120000
+    ? configuredTimeout
+    : 15000
 export async function request<T>(
   path: string,
   options: RequestInit = {},
@@ -41,7 +46,7 @@ export async function request<T>(
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...options.headers,
       },
-      signal: options.signal ?? AbortSignal.timeout(15000),
+      signal: options.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })
   } catch {
     throw new Error(

@@ -7,8 +7,10 @@ import { EventsModule } from './events/events.module';
 import { VotesModule } from './votes/votes.module';
 import { RankingsModule } from './rankings/rankings.module';
 import { resolve } from 'node:path';
+import { HealthController } from './health.controller';
 
 @Module({
+  controllers: [HealthController],
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
