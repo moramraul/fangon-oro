@@ -88,19 +88,11 @@ Hay tres identidades diferentes: tu cuenta de Atlas, este usuario de conexión y
 
 ### Copiar la URI
 
-En tu cluster pulsa **Connect → Drivers**. Selecciona Node.js y copia la cadena de conexión. Tendrá un aspecto similar a:
+En tu cluster pulsa **Connect → Drivers**. Selecciona Node.js y copia la cadena de conexión a un lugar privado. No la pegues en este documento.
 
-```text
-mongodb+srv://fangon_staging_app:<db_password>@TU-CLUSTER.mongodb.net/?retryWrites=true&w=majority
-```
+En esa copia privada, sustituye `<db_password>` por la contraseña del usuario de conexión. Añade `fangon_staging` tras `.net/` y antes de `?`, conservando el hostname real y los parámetros que traiga la URI. El resultado debe apuntar a la base `fangon_staging`.
 
-Sustituye `<db_password>` por la contraseña del usuario de conexión y añade el nombre de la base tras `.net/`:
-
-```text
-mongodb+srv://fangon_staging_app:CONTRASENA@TU-CLUSTER.mongodb.net/fangon_staging?retryWrites=true&w=majority
-```
-
-`TU-CLUSTER` representa el hostname real copiado de Atlas: no copies literalmente ese ejemplo. Conserva los parámetros que traiga tu URI. Si la contraseña contiene caracteres especiales, deben codificarse en la URI; puedes generar su versión codificada ejecutando `node -p "encodeURIComponent('CONTRASENA')"` en tu terminal local, sin compartir la salida. Es más sencillo usar una contraseña aleatoria larga compuesta por letras y números para este usuario.
+No incluimos una URI con usuario y contraseña de ejemplo porque los detectores de secretos pueden marcarla como una credencial expuesta aunque sea ficticia. Si la contraseña contiene caracteres especiales, deben codificarse en la URI. Es más sencillo usar una contraseña aleatoria larga compuesta por letras y números para este usuario.
 
 Guarda esta URI en un lugar privado. Es un secreto. No la pegues en GitHub, archivos del frontend ni capturas públicas. La API creará la base y sus colecciones al arrancar/escribir; no necesitas crearlas manualmente.
 
