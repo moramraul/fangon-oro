@@ -35,7 +35,9 @@ export class RankingsService {
     const snapshot = await this.snapshots.latest();
     return snapshot?.generalRanking
       ? {
-          ...snapshot.generalRanking,
+          ...(await this.snapshots.withParticipation(
+            snapshot.generalRanking.entries,
+          )),
           calculatedAt: snapshot.calculatedAt?.toISOString(),
         }
       : Ranking.from([], 0);

@@ -8,12 +8,56 @@ import { RankingsService } from './rankings.service';
 import { RankingSnapshotsService } from './snapshots/ranking-snapshots.service';
 
 describe('RankingsService', () => {
+  it('ranks equal points by participation before five-point votes', () => {
+    const ranking = Ranking.from(
+      [
+        {
+          id: 'a',
+          name: 'A',
+          points: 10,
+          fivePointVotes: 2,
+          eventsParticipated: 1,
+        },
+        {
+          id: 'b',
+          name: 'B',
+          points: 10,
+          fivePointVotes: 0,
+          eventsParticipated: 3,
+        },
+        { id: 'c', name: 'C', points: 11, eventsParticipated: 1 },
+      ],
+      31,
+    );
+    expect(ranking.entries.map(({ id, position }) => [id, position])).toEqual([
+      ['c', 1],
+      ['b', 2],
+      ['a', 3],
+    ]);
+    expect(
+      Ranking.from(
+        ranking.entries.filter((entry) => entry.points === 10),
+        20,
+      ).leaderIds,
+    ).toEqual(['b']);
+  });
   const a = new Types.ObjectId();
-  const snapshots = { latest: jest.fn(), forEvent: jest.fn() };
+  const snapshots = {
+    withParticipation: jest.fn(),
+    latest: jest.fn(),
+    forEvent: jest.fn(),
+  };
   const events = { getDetail: jest.fn() };
   let service: RankingsService;
   beforeEach(() => {
     jest.resetAllMocks();
+    snapshots.withParticipation.mockImplementation(
+      async (entries: Ranking['entries']) =>
+        Ranking.from(
+          entries,
+          entries.reduce((sum, entry) => sum + entry.points, 0),
+        ),
+    );
     events.getDetail.mockResolvedValue({
       id: 'event',
       status: EventStatus.OPEN,

@@ -35,13 +35,18 @@ export class StatsService {
           : editionId
             ? (snapshot?.editions?.[editionId] ?? [])
             : [];
-    const people = entries.map((entry) => {
+    const ranking = await this.snapshots.withParticipation(
+      entries,
+      editionId ?? undefined,
+    );
+    const people = ranking.entries.map((entry) => {
       const ones =
         entry.points - 5 * entry.fivePointVotes - 3 * entry.threePointVotes;
       return {
         id: entry.id,
         name: entry.name,
         avatar: entry.avatar ?? null,
+        eventsParticipated: entry.eventsParticipated ?? 0,
         fives: entry.fivePointVotes,
         threes: entry.threePointVotes,
         ones,
@@ -98,16 +103,22 @@ export class StatsService {
               !minimum && votes === 0
                 ? []
                 : people.filter((person) => person[field] === votes);
+            const participation = Math.max(
+              0,
+              ...winners.map((person) => person.eventsParticipated),
+            );
             return {
               id,
               title,
               description,
               votes,
-              people: winners.map(({ id, name, avatar }) => ({
-                id,
-                name,
-                avatar,
-              })),
+              people: winners
+                .filter((person) => person.eventsParticipated === participation)
+                .map(({ id, name, avatar }) => ({
+                  id,
+                  name,
+                  avatar,
+                })),
             };
           }),
     };

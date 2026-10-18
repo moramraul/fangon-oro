@@ -6,7 +6,7 @@ import { User } from '../../users/schemas/user.schema';
 import { pointsPipeline } from '../../votes/points.pipeline';
 import { Score } from '../../votes/score';
 import { Vote } from '../../votes/schemas/vote.schema';
-import { Ranking } from '../models/ranking.model';
+import { Ranking, RankingEntry } from '../models/ranking.model';
 import { RankingSnapshot, SnapshotEntry } from './ranking-snapshot.schema';
 
 @Injectable()
@@ -167,12 +167,44 @@ export class RankingSnapshotsService {
     );
   }
 
+  // Derive participation from individual closed-event snapshots, including old
+  // snapshots that predate the participation field. Never sum cumulative totals.
+  async withParticipation(
+    entries: RankingEntry[],
+    editionId?: string,
+  ): Promise<Ranking> {
+    const contributions = await this.snapshots
+      .find({
+        key: { $ne: '__lock__' },
+        'event.editionId': editionId ?? { $exists: true },
+      })
+      .select('eventRanking.entries.id')
+      .lean()
+      .exec();
+    const counts = new Map<string, number>();
+    for (const snapshot of contributions) {
+      for (const id of new Set(
+        (snapshot.eventRanking?.entries ?? []).map((entry) => entry.id),
+      ))
+        counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+    return Ranking.from(
+      entries.map((entry) => ({
+        ...entry,
+        eventsParticipated:
+          counts.get(entry.id) ?? entry.eventsParticipated ?? 0,
+      })),
+      entries.reduce((sum, entry) => sum + entry.points, 0),
+    );
+  }
+
   combine(entries: SnapshotEntry[]): Ranking {
     const totals = new Map<string, SnapshotEntry>();
     for (const entry of entries) {
       const prior = totals.get(entry.id);
       totals.set(entry.id, {
         ...entry,
+        eventsParticipated: (prior?.eventsParticipated ?? 0) + 1,
         points: (prior?.points ?? 0) + entry.points,
         fivePointVotes: (prior?.fivePointVotes ?? 0) + entry.fivePointVotes,
         threePointVotes: (prior?.threePointVotes ?? 0) + entry.threePointVotes,

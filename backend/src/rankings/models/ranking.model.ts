@@ -4,11 +4,13 @@ import { compareScores, Score } from '../../votes/score';
 export interface RankingEntry {
   id: string;
   name: string;
+  avatar?: string | null;
   points: number;
   fivePointVotes: number;
   threePointVotes: number;
   percentage: number;
   position: number;
+  eventsParticipated?: number;
 }
 
 // A read model derived from votes, so totals cannot drift from the source data.
@@ -21,16 +23,28 @@ export class Ranking {
   leaderIds!: string[];
 
   static from(
-    candidates: (Score & { id: string; name: string })[],
+    candidates: (Score & {
+      id: string;
+      name: string;
+      eventsParticipated?: number;
+    })[],
     totalPoints: number,
     event?: { id: string; status: EventSummaryStatus },
   ): Ranking {
+    const compare = (
+      a: (typeof candidates)[number],
+      b: (typeof candidates)[number],
+    ) =>
+      a.points === b.points && !event
+        ? (b.eventsParticipated ?? 0) - (a.eventsParticipated ?? 0) ||
+          compareScores(a, b)
+        : compareScores(a, b);
     const sorted = [...candidates].sort(
-      (a, b) => compareScores(a, b) || a.id.localeCompare(b.id),
+      (a, b) => compare(a, b) || a.id.localeCompare(b.id),
     );
     let position = 0;
     const entries = sorted.map((candidate, index) => {
-      if (index === 0 || compareScores(candidate, sorted[index - 1]) !== 0) {
+      if (index === 0 || compare(candidate, sorted[index - 1]) !== 0) {
         position = index + 1;
       }
       return {
@@ -50,7 +64,7 @@ export class Ranking {
       entries,
       leaderIds: entries[0]?.points
         ? entries
-            .filter((entry) => compareScores(entry, entries[0]) === 0)
+            .filter((entry) => compare(entry, entries[0]) === 0)
             .map((entry) => entry.id)
         : [],
     });

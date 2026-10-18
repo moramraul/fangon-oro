@@ -1,3 +1,4 @@
+import { Ranking } from '../rankings/models/ranking.model';
 import { NotFoundException } from '@nestjs/common';
 import { Model, Types } from 'mongoose';
 import { EditionsService } from '../editions/editions.service';
@@ -42,7 +43,11 @@ describe('OverviewService with explicit editions', () => {
   const events = { find: jest.fn(), findById: jest.fn() };
   const votes = { distinct: jest.fn() };
   const lifecycle = { closeExpired: jest.fn() };
-  const snapshots = { latest: jest.fn(), forEvent: jest.fn() };
+  const snapshots = {
+    withParticipation: jest.fn(),
+    latest: jest.fn(),
+    forEvent: jest.fn(),
+  };
   const editions = {
     current: jest.fn(),
     find: jest.fn(),
@@ -52,6 +57,13 @@ describe('OverviewService with explicit editions', () => {
   let service: OverviewService;
   beforeEach(() => {
     jest.resetAllMocks();
+    snapshots.withParticipation.mockImplementation(
+      async (entries: Ranking['entries']) =>
+        Ranking.from(
+          entries,
+          entries.reduce((sum, entry) => sum + entry.points, 0),
+        ),
+    );
     events.find.mockReturnValue({
       sort: jest
         .fn()

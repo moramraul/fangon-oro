@@ -4,6 +4,24 @@ Este manual lleva desde el proyecto local hasta una dirección HTTPS que puedes 
 
 La primera puesta en marcha incluye registro con contraseña, administración, eventos, votos, resultados, rankings y estadísticas. Google se configura al final. El correo requiere una adaptación pendiente: el código usa SMTP y Render Free bloquea esos puertos. Por tanto, la recuperación de contraseña por correo no estará operativa en esta primera fase.
 
+## Coste previsto y dominio
+
+**Configuración elegida tras el primer despliegue:** web `https://fangon-oro-web.onrender.com`, base existente `fangon-oro`, API de pago durante los meses de uso intenso y Free el resto. No se contratará dominio propio. Las instrucciones iniciales de Free se conservan para el alta; para activar correo con la API ya de pago, sigue el apartado 14.
+
+El objetivo es mantener el alojamiento a **0 € dentro de los límites gratuitos**, reutilizando tu cluster actual de Atlas si es Free/M0. No necesitas contratar otro cluster para tener una base de pruebas.
+
+| Concepto | Opción elegida | Coste previsto |
+| --- | --- | --- |
+| Web | Render Static Site, espacio Hobby | Gratis dentro de las cuotas incluidas |
+| API | Un Web Service Render Free | Gratis dentro de las cuotas; se suspende por inactividad |
+| Base de datos | Tu cluster Atlas Free/M0 actual | Gratis dentro de sus límites; las bases comparten recursos |
+| Dirección inicial | Subdominio `onrender.com` que asigne Render | Incluida |
+| Dominio propio opcional | Por ejemplo `fangon-oro.es` o `fangon-oro.com` | Registro y renovación anual en un registrador |
+
+`fangon-oro` necesita una extensión para ser un dominio propio. Los ejemplos anteriores son candidatos: no se ha comprobado su disponibilidad ni su precio. Antes de comprar, compara el precio de renovación, impuestos y extras; no contrates hosting adicional para conectarlo a Render. Puedes empezar gratis y añadir el dominio después siguiendo el apartado 15.
+
+Comprueba en los paneles el consumo y el plan antes de confirmar cambios. Evita instancias de pago, Atlas Flex/Dedicated y extras de pago como copias automáticas. Las cuotas y condiciones pueden cambiar: [Render Free](https://render.com/docs/free), [Atlas Free](https://www.mongodb.com/docs/atlas/tutorial/deploy-free-tier-cluster/).
+
 ## Qué vamos a crear
 
 | Elemento | Dónde | Para qué sirve |
@@ -13,7 +31,7 @@ La primera puesta en marcha incluye registro con contraseña, administración, e
 | API / backend | Render, Web Service | Login, permisos, eventos, votos y cálculos |
 | Base de datos | MongoDB Atlas, cluster Free | Guarda las cuentas, eventos y votos |
 
-Web y API tendrán URLs distintas. Compartirás la de la **web**. La API será pública, pero sus operaciones protegidas exigen autenticación. Los datos de estas pruebas estarán en `fangon_staging`, separados de tu MongoDB local.
+Web y API tendrán URLs distintas. Compartirás la de la **web**. La API será pública, pero sus operaciones protegidas exigen autenticación. El despliegue utilizará tu base existente `fangon-oro` dentro de tu cluster actual, con sus cuentas y eventos.
 
 ## 1. Subir la preparación a GitHub
 
@@ -61,15 +79,17 @@ Abre [tu repositorio](https://github.com/moramraul/fangon-oro) en el navegador. 
 
 ## 2. Crear las cuentas
 
-Abre [MongoDB Atlas](https://www.mongodb.com/cloud/atlas/register) y crea una cuenta. Confirma el correo si lo solicita. Esta cuenta administra la base de datos; no es una cuenta de usuario de Fangón.
+Entra en tu cuenta actual de MongoDB Atlas y abre el proyecto donde tienes Fangón. No necesitas otra cuenta. Si no tienes cuenta, créala en [MongoDB Atlas](https://www.mongodb.com/cloud/atlas/register). Esta cuenta administra la base de datos; no es una cuenta de usuario de Fangón.
 
 Abre [Render](https://dashboard.render.com/) y regístrate, preferiblemente con GitHub para facilitar la conexión del repositorio. Selecciona el espacio de trabajo gratuito/Hobby si te pregunta por el plan. En los servicios posteriores comprueba que la API esté en **Free**, no en un plan de pago. Si la plataforma exige una tarjeta o muestra un coste que no esperabas, revisa la selección antes de aceptarlo.
 
-## 3. Crear la base de pruebas en Atlas
+## 3. Reutilizar Atlas y elegir la base
 
-En Atlas crea un proyecto, por ejemplo `Fangon pruebas`, si el asistente no lo ha creado ya.
+Abre tu proyecto y cluster actuales de Fangón. Comprueba que el plan sea **Free/M0**. Si ya existe, omite la creación de proyecto y cluster: varias bases pueden compartir el mismo cluster y sus límites de almacenamiento y recursos. Atlas permite un cluster Free por proyecto.
 
-Pulsa **Build a Database**, **Create** o **Create a deployment**, según la pantalla. Selecciona el cluster **Free**, también llamado **M0**. No selecciones Flex ni Dedicated para este manual. Ponle un nombre como `fangon-pruebas`. Elige una región europea gratuita, preferiblemente Frankfurt si está disponible. No necesitas datos de ejemplo. Confirma la creación y espera a que el cluster esté disponible. [Instrucciones oficiales](https://www.mongodb.com/docs/atlas/tutorial/deploy-free-tier-cluster/).
+Solo si no tienes cluster: crea un proyecto y pulsa **Build a Database**, **Create** o **Create a deployment**. Selecciona **Free/M0**, sin Flex ni Dedicated, una región europea gratuita y sin datos de ejemplo. [Instrucciones oficiales](https://www.mongodb.com/docs/atlas/tutorial/deploy-free-tier-cluster/).
+
+Este manual reutiliza tu base existente **`fangon-oro`**. No tienes que crear otra base ni migrar sus datos. La web desplegada modificará esas mismas cuentas y eventos; guarda una exportación antes de probar votos, cierres o cambios de administrador. Si tu aplicación local también apunta a esa base de Atlas, ambos entornos compartirán los datos.
 
 ### Usuario de conexión
 
@@ -78,11 +98,11 @@ En **Security → Database Access** / **Database Users**, pulsa **Add New Databa
 | Campo | Valor |
 | --- | --- |
 | Authentication Method | Password |
-| Username | `fangon_staging_app` |
+| Username | `fangon_app` |
 | Password | Una contraseña nueva, larga, guardada en tu gestor de contraseñas |
-| Database privileges | Rol `readWrite` sobre la base `fangon_staging` |
+| Database privileges | Rol `readWrite` sobre la base `fangon-oro` |
 
-En el selector de permisos, busca **Specific Privileges** o una opción equivalente para asignar `readWrite`, base `fangon_staging`, todas las colecciones de esa base. No hace falta conceder administración del cluster. Si el asistente inicial creó un usuario con acceso más amplio, ajusta sus permisos desde Database Access.
+En el selector de permisos, busca **Specific Privileges** o una opción equivalente para asignar `readWrite`, base `fangon-oro`, todas las colecciones de esa base. No hace falta conceder administración del cluster. Si el asistente inicial creó un usuario con acceso más amplio, ajusta sus permisos desde Database Access.
 
 Hay tres identidades diferentes: tu cuenta de Atlas, este usuario de conexión y los usuarios que se registrarán en Fangón. No uses tu contraseña de Atlas como contraseña de conexión. [Explicación oficial](https://www.mongodb.com/docs/atlas/tutorial/create-mongodb-user-for-cluster/).
 
@@ -90,7 +110,7 @@ Hay tres identidades diferentes: tu cuenta de Atlas, este usuario de conexión y
 
 En tu cluster pulsa **Connect → Drivers**. Selecciona Node.js y copia la cadena de conexión a un lugar privado. No la pegues en este documento.
 
-En esa copia privada, sustituye `<db_password>` por la contraseña del usuario de conexión. Añade `fangon_staging` tras `.net/` y antes de `?`, conservando el hostname real y los parámetros que traiga la URI. El resultado debe apuntar a la base `fangon_staging`.
+En esa copia privada, sustituye `<db_password>` por la contraseña del usuario de conexión. El nombre de la base tras `.net/` y antes de `?` debe ser `fangon-oro`: si ya aparece, consérvalo; si aparece otro nombre, sustitúyelo. Conserva el hostname real y los parámetros que traiga la URI.
 
 No incluimos una URI con usuario y contraseña de ejemplo porque los detectores de secretos pueden marcarla como una credencial expuesta aunque sea ficticia. Si la contraseña contiene caracteres especiales, deben codificarse en la URI. Es más sencillo usar una contraseña aleatoria larga compuesta por letras y números para este usuario.
 
@@ -163,7 +183,7 @@ Añade las variables:
 | --- | --- |
 | `NODE_VERSION` | `24` |
 | `NODE_ENV` | `production` |
-| `MONGODB_URI` | La URI completa del paso 3 con `fangon_staging` |
+| `MONGODB_URI` | La URI completa del paso 3 con `fangon-oro` |
 | `JWT_SECRET` | La cadena recién generada |
 | `FRONTEND_URL` | **URL_WEB**, incluyendo `https://`, sin `#/login` ni otras rutas |
 | `MAIL_ENABLED` | `false` |
@@ -214,7 +234,7 @@ Cuando la web vuelva a estar **Live**, ábrela y recarga con `Ctrl+F5`. Entra en
 
 Tu registro crea un usuario desactivado y con rol `USER`. Al ser el primero, todavía no hay administrador que pueda activarte; por eso esta primera vez lo haremos desde Atlas.
 
-En Atlas abre el cluster y pulsa **Browse Collections** / **Data Explorer**. Selecciona la base `fangon_staging` y la colección `users`. Si no aparece, actualiza la lista. No selecciones una base local ni una colección del sistema.
+En Atlas abre el cluster y pulsa **Browse Collections** / **Data Explorer**. Selecciona la base `fangon-oro` y la colección `users`. Si no aparece, actualiza la lista. No selecciones una base local ni una colección del sistema.
 
 Filtra por tu correo en minúsculas:
 
@@ -233,7 +253,7 @@ Localiza tu documento, pulsa editar (habitualmente un lápiz) y cambia únicamen
 
 Vuelve a la web e inicia sesión con tu correo y contraseña. En tu perfil deben aparecer **Crear o modificar evento**, **Usuarios pendientes de activar** y la gestión de ediciones.
 
-Si no aparecen, cierra sesión y vuelve a entrar. Si la colección está vacía, revisa que el registro del paso 7 se completó y que la URI usa `fangon_staging`.
+Si no aparecen, cierra sesión y vuelve a entrar. Si la colección está vacía, revisa que el registro del paso 7 se completó y que la URI usa `fangon-oro`.
 
 ## 9. Probar desde el móvil y con tus amigos
 
@@ -271,7 +291,7 @@ No necesitas compartir un client secret con el frontend: este flujo usa el clien
 
 **Disponibilidad:** Render Free suspende la API tras 15 minutos sin tráfico. El siguiente acceso puede tardar aproximadamente un minuto; la web tolera hasta 90 segundos. Mientras está suspendida no corre el temporizador de eventos. Los límites de intentos se reinician con el proceso. Atlas conserva los datos. [Limitaciones oficiales](https://render.com/docs/free).
 
-**Datos de pruebas:** el despliegue arranca con datos nuevos; tus cuentas locales no aparecen automáticamente. Atlas Free tiene límites y no ofrece las mismas prestaciones de copia de seguridad que los planes dedicados. Si los datos empiezan a importar, prepararemos exportación y restauración antes de considerarlo producción. [Límites Atlas Free](https://www.mongodb.com/docs/atlas/reference/free-shared-limitations/).
+**Datos existentes:** el despliegue utilizará las cuentas y eventos que ya estén en `fangon-oro` en Atlas. Los datos que estén exclusivamente en otro MongoDB local no se trasladan automáticamente. Guarda una exportación de Atlas antes de las pruebas y prepara su restauración. Atlas Free tiene límites; revisa el coste de cualquier opción de copia automática antes de activarla. [Límites Atlas Free](https://www.mongodb.com/docs/atlas/reference/free-shared-limitations/).
 
 ## 12. Cómo desplegar cambios después
 
@@ -312,3 +332,41 @@ Las variables del servidor se cambian en Environment de la API y requieren redes
 En Render, **Events** muestra despliegues y **Logs** los mensajes del servidor. En el navegador de escritorio, abre `F12 → Network`, repite el fallo y mira la petición: URL, código de estado y respuesta. No compartas las cabeceras Authorization, contraseñas, JWT secret ni URI completa de MongoDB.
 
 Si necesitas ayuda, indica el número de paso, servicio (web/API/Atlas), mensaje exacto y captura con secretos ocultos. Eso permite localizar el problema sin rehacer todo el despliegue.
+
+## 14. Activar Gmail y Google con la API de pago
+
+Con la API en un plan de pago, el código actual permite Gmail por SMTP. No basta con cambiar `MAIL_ENABLED`: configura todas las variables siguientes en **fangon-oro-api → Environment**. Los valores se pegan sin comillas ni backticks.
+
+| Variable | Valor |
+| --- | --- |
+| `MAIL_ENABLED` | `true` |
+| `SMTP_HOST` | `smtp.gmail.com` |
+| `SMTP_PORT` | `465` |
+| `SMTP_SECURE` | `true` |
+| `SMTP_USER` | La dirección completa de tu cuenta de Gmail emisora |
+| `SMTP_PASSWORD` | Una contraseña de aplicación de esa cuenta de Google |
+| `MAIL_FROM` | `Fangón de Oro <TU_CORREO_GMAIL>` sustituyendo el marcador por el mismo correo de `SMTP_USER` |
+| `FRONTEND_URL` | `https://fangon-oro-web.onrender.com` |
+| `GOOGLE_CLIENT_ID` | El client ID OAuth web que ya usas para el login local |
+
+Para crear la contraseña de aplicación, activa la verificación en dos pasos y sigue las [instrucciones de Google](https://support.google.com/accounts/answer/185833). Usa esa contraseña, no la contraseña normal de tu cuenta. Si ya tienes SMTP funcionando en local, puedes reutilizar la configuración compatible; conserva la URL pública anterior. Guarda los secretos únicamente en Render o en tu configuración local privada.
+
+En Google Cloud Console, abre el cliente OAuth web existente y añade `https://fangon-oro-web.onrender.com` a **Authorized JavaScript origins**, sin rutas ni barra final. Conserva los orígenes locales. Este flujo no necesita añadir una URI de redirección ni un client secret. [Configuración oficial](https://developers.google.com/identity/gsi/web/guides/get-google-api-clientid).
+
+En **fangon-oro-web → Environment**, añade `VITE_GOOGLE_CLIENT_ID` con el mismo client ID que `GOOGLE_CLIENT_ID` en la API. Guarda y despliega la API; en la web utiliza **Save, rebuild, and deploy**. Cuando ambas estén Live, recarga la web y prueba el acceso con Google y la recuperación de contraseña con una cuenta existente que tenga contraseña. Comprueba recepción, spam y que el enlace apunte a la web pública; el mensaje de recuperación por sí solo no confirma el envío.
+
+Si vuelves a Free, desactiva el correo con `MAIL_ENABLED=false` y redespliega, o adapta antes el envío a HTTPS. El acceso con Google puede seguir activo en Free.
+
+## 15. Añadir un dominio propio opcional
+
+Completa primero el despliegue con la dirección gratuita. Después puedes registrar un dominio disponible, por ejemplo `fangon-oro.es` o `fangon-oro.com`. El registro se paga al registrador y tiene renovación periódica; revisa su precio de renovación y los impuestos. Basta con dominio y gestión DNS, sin contratar otro alojamiento ni un certificado SSL.
+
+Render Hobby incluye actualmente dos dominios personalizados en el espacio de trabajo y gestiona los certificados HTTPS automáticamente. Revisa cuántos tienes ya antes de añadirlos: superar los incluidos tiene coste. [Condiciones y configuración oficial](https://render.com/docs/custom-domains).
+
+1. En el servicio de la **web** de Render, abre **Settings → Custom Domains → Add Custom Domain** e introduce el dominio que hayas registrado.
+2. En el panel DNS del registrador, configura los registros que Render indique para ese dominio. Sigue las instrucciones del proveedor enlazadas por Render; no copies IPs de ejemplos. Render añade también la variante con/sin `www` y redirige a la elegida: revisa ambas entradas.
+3. Vuelve a Render, pulsa **Verify** y espera a que el dominio y el certificado estén activos. Comprueba que la web abre con HTTPS.
+4. Usa ese origen como nueva **URL_WEB**. En la API, actualiza `FRONTEND_URL` al origen final, por ejemplo `https://fangon-oro.es`, sin rutas ni barra final, y redespliega. Comparte esa dirección con los usuarios.
+5. Si activaste Google, añade ese mismo origen en **Authorized JavaScript origins** del cliente OAuth. Comprueba de nuevo el acceso con contraseña y con Google desde el dominio definitivo.
+
+Puedes mantener la API en su dirección `onrender.com`: `VITE_API_URL` seguirá apuntando a ella y no necesitas un dominio adicional para la API. Añadir un dominio propio no cambia los límites del plan Free ni evita la suspensión por inactividad.

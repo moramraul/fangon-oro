@@ -19,6 +19,43 @@ function query(value: unknown) {
 }
 
 describe('RankingSnapshotsService', () => {
+  it('derives participation from old event snapshots and scopes the query to the edition', async () => {
+    const entry = (id: string) => ({
+      id,
+      name: id,
+      points: 5,
+      fivePointVotes: 1,
+      threePointVotes: 0,
+      position: 1,
+      percentage: 0,
+      avatar: null,
+    });
+    snapshots.find.mockReturnValue(
+      query([
+        { eventRanking: { entries: [entry('a'), entry('b')] } },
+        { eventRanking: { entries: [entry('b')] } },
+      ]),
+    );
+    const result = await service.withParticipation(
+      [entry('a'), entry('b')],
+      editionId.toHexString(),
+    );
+    expect(snapshots.find).toHaveBeenCalledWith({
+      key: { $ne: '__lock__' },
+      'event.editionId': editionId.toHexString(),
+    });
+    expect(
+      result.entries.map(({ id, eventsParticipated, position }) => [
+        id,
+        eventsParticipated,
+        position,
+      ]),
+    ).toEqual([
+      ['b', 2, 1],
+      ['a', 1, 2],
+    ]);
+    expect(result.leaderIds).toEqual(['b']);
+  });
   const id = new Types.ObjectId();
   const editionId = new Types.ObjectId();
   const userId = new Types.ObjectId();

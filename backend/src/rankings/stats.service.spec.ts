@@ -21,11 +21,18 @@ describe('StatsService with explicit editions', () => {
     percentage: 0,
     position: 1,
   });
-  const snapshots = { latest: jest.fn() };
+  const snapshots = { withParticipation: jest.fn(), latest: jest.fn() };
   const editions = { current: jest.fn(), find: jest.fn(), list: jest.fn() };
   let service: StatsService;
   beforeEach(() => {
     jest.resetAllMocks();
+    snapshots.withParticipation.mockImplementation(
+      async (entries: Ranking['entries']) =>
+        Ranking.from(
+          entries,
+          entries.reduce((sum, entry) => sum + entry.points, 0),
+        ),
+    );
     editions.current.mockResolvedValue({
       _id: currentId,
       name: 'Current',
@@ -107,6 +114,22 @@ describe('StatsService with explicit editions', () => {
     expect(stats.awards[0].people.map((entry) => entry.id)).toEqual(['a', 'b']);
     expect(stats.awards[1].people).toEqual([]);
     expect(stats.awards[3].people.map((entry) => entry.id)).toEqual(['c', 'd']);
+  });
+  it('awards tied statistics to the person with more events in that edition', async () => {
+    const entries = [
+      { ...person('a', 5, 1), eventsParticipated: 1 },
+      { ...person('b', 5, 1), eventsParticipated: 3 },
+    ];
+    snapshots.latest.mockResolvedValue({
+      editions: { [currentId.toHexString()]: entries },
+    });
+    const stats = await service.get();
+    expect(snapshots.withParticipation).toHaveBeenCalledWith(
+      entries,
+      currentId.toHexString(),
+    );
+    expect(stats.awards[0].people.map(({ id }) => id)).toEqual(['b']);
+    expect(stats.awards[3].people.map(({ id }) => id)).toEqual(['b']);
   });
   it('counts received votes rather than points for the anti title, including legacy ones', async () => {
     snapshots.latest.mockResolvedValue({

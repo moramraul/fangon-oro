@@ -2,7 +2,9 @@
 
 Si es tu primer despliegue, sigue el [manual completo paso a paso](deployment-first-time.md), que incluye el alta de cuentas, cada campo del panel, la activación del primer administrador y la solución de errores. Este documento es la referencia resumida.
 
-La propuesta es una web estática y una API gratuita en Render, más MongoDB Atlas Free con una base `fangon_staging`. Se usan las direcciones HTTPS de los proveedores; no hace falta comprar un dominio. Mantener una sola instancia de la API por los límites de intentos en memoria.
+La propuesta es una web estática y una API gratuita en Render, más MongoDB Atlas Free con una base `fangon-oro`. Se usan las direcciones HTTPS de los proveedores; no hace falta comprar un dominio. Mantener una sola instancia de la API por los límites de intentos en memoria.
+
+Objetivo: 0 € de alojamiento dentro de las cuotas gratuitas, reutilizando el cluster Atlas existente. Un dominio propio como `fangon-oro.es` o `fangon-oro.com` es opcional y requiere pagar registro y renovación; disponibilidad y precio pendientes de comprobar. Render Hobby incluye actualmente dos dominios personalizados y HTTPS gestionado. Consultar el apartado 15 del manual completo para DNS, `FRONTEND_URL` y Google, y las [condiciones de Render](https://render.com/docs/custom-domains).
 
 `render.yaml` describe los servicios. También pueden crearse manualmente siguiendo los pasos siguientes. Esta preparación no crea cuentas ni publica el proyecto.
 
@@ -10,9 +12,9 @@ La propuesta es una web estática y una API gratuita en Render, más MongoDB Atl
 
 Guardar los cambios y subir el repositorio a GitHub/GitLab para que Render pueda construirlo. Mantenerlo privado si se prefiere. No subir secretos. `frontend/.env` ya estaba versionado: retirarlo del índice con `git rm --cached frontend/.env` antes de publicar (el archivo local se conserva). El client ID de Google es público, pero las credenciales de MongoDB, SMTP y JWT nunca deben estar en variables `VITE_*`.
 
-Crear un proyecto/cluster Atlas Free para pruebas y un usuario de base de datos independiente con permiso `readWrite` sobre `fangon_staging`. Obtener la URI de conexión y añadir `/fangon_staging` antes de sus parámetros. Los votos y cierres requieren transacciones: no sustituir Atlas por un MongoDB standalone.
+Reutilizar el cluster Atlas actual si es Free/M0 y su base existente `fangon-oro`, con un usuario de conexión independiente con permiso `readWrite` sobre ella. No crear otra base. Obtener la URI de conexión y comprobar que su ruta sea `/fangon-oro` antes de los parámetros, sustituyendo cualquier otro nombre de base. Exportar antes los datos, porque el despliegue modificará las cuentas y eventos existentes. Los votos y cierres requieren transacciones: no sustituir Atlas por un MongoDB standalone.
 
-En Network Access de Atlas permitir las IPs/rangos de salida de la región del servicio Render, disponibles en su panel. Preferir esos rangos a abrir el acceso a todas las IPs. No copiar la base local de forma automática: empezar con cuentas y eventos de prueba.
+En Network Access de Atlas permitir las IPs/rangos de salida de la región del servicio Render, disponibles en su panel. Preferir esos rangos a abrir el acceso a todas las IPs. Se utilizarán las cuentas y eventos existentes en Atlas; los datos de otro MongoDB local no se copian automáticamente.
 
 ## 2. Crear el frontend
 
@@ -42,7 +44,7 @@ Crear un Web Service de Render con runtime Node y plan **Free**, en Frankfurt si
 | Health Check Path | `/health` |
 | `NODE_VERSION` | `24` |
 | `NODE_ENV` | `production` |
-| `MONGODB_URI` | URI Atlas con base `fangon_staging` |
+| `MONGODB_URI` | URI Atlas con base `fangon-oro` |
 | `JWT_SECRET` | Un secreto nuevo, diferente del local |
 | `FRONTEND_URL` | URL HTTPS exacta de la web, sin hash |
 | `MAIL_ENABLED` | `false` inicialmente |
@@ -64,7 +66,7 @@ Copiar la URL HTTPS pública de la API a `VITE_API_URL` del Static Site y recons
 Visitar `https://URL-DE-LA-API/health` y comprobar `{"status":"ok"}`. Registrar tu cuenta en la web y activar/promover únicamente esa cuenta desde Atlas Data Explorer:
 
 ```js
-// En la base fangon_staging, después de comprobar el correo del documento.
+// En la base fangon-oro, después de comprobar el correo del documento.
 db.users.updateOne(
   { email: "TU-CORREO-NORMALIZADO" },
   { $set: { isActive: true, role: "ADMIN" } }

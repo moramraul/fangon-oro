@@ -61,6 +61,10 @@ export class OverviewService {
         : edition?.status === 'closed'
           ? (edition.finalRanking?.entries ?? [])
           : (snapshot?.editions?.[editionId!] ?? []);
+    const ranking = await this.snapshots.withParticipation(
+      standings,
+      editionId,
+    );
     return {
       scope,
       edition: edition ? this.editions.summary(edition) : null,
@@ -74,7 +78,10 @@ export class OverviewService {
           : scope === 'global' || (editionId && snapshot?.editions?.[editionId])
             ? (snapshot?.calculatedAt?.toISOString() ?? null)
             : null,
-      standings: standings.map((entry) => ({ ...entry, rank: entry.position })),
+      standings: ranking.entries.map((entry) => ({
+        ...entry,
+        rank: entry.position,
+      })),
       events: events.map((event) => ({
         id: event._id.toHexString(),
         editionId: event.editionId.toHexString(),
