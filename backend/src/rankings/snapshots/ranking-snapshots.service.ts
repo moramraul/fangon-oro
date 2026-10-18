@@ -6,8 +6,12 @@ import { User } from '../../users/schemas/user.schema';
 import { pointsPipeline } from '../../votes/points.pipeline';
 import { Score } from '../../votes/score';
 import { Vote } from '../../votes/schemas/vote.schema';
-import { Ranking, RankingEntry } from '../models/ranking.model';
-import { RankingSnapshot, SnapshotEntry } from './ranking-snapshot.schema';
+import { Ranking } from '../models/ranking.model';
+import {
+  RankingSnapshot,
+  SnapshotEntry,
+  SnapshotRanking,
+} from './ranking-snapshot.schema';
 
 @Injectable()
 export class RankingSnapshotsService {
@@ -30,7 +34,58 @@ export class RankingSnapshotsService {
   }
 
   async forEvent(eventId: string) {
-    return this.snapshots.findOne({ key: eventId }).lean().exec();
+    const snapshot = await this.snapshots
+      .findOne({ key: eventId })
+      .lean()
+      .exec();
+    if (!snapshot) return null;
+    return {
+      ...snapshot,
+      eventRanking: snapshot.eventRanking
+        ? await this.withProfiles(snapshot.eventRanking)
+        : undefined,
+    };
+  }
+
+  // Resolve display data on every read; legacy embedded profiles are ignored.
+  async withProfiles(ranking: SnapshotRanking): Promise<Ranking> {
+    const ids = [...new Set(ranking.entries.map((entry) => entry.id))];
+    const users = ids.length
+      ? await this.users
+          .find({ _id: { $in: ids } })
+          .select('_id name avatar')
+          .lean()
+          .exec()
+      : [];
+    const profiles = new Map(
+      users.map((user) => [user._id.toHexString(), user]),
+    );
+    return {
+      ...ranking,
+      entries: ranking.entries.map((entry) => ({
+        ...entry,
+        name: profiles.get(entry.id)?.name ?? 'Usuario eliminado',
+        avatar: profiles.get(entry.id)?.avatar ?? null,
+      })),
+    };
+  }
+
+  // Explicit allowlist also strips profile fields from legacy snapshots.
+  withoutProfiles(ranking: SnapshotRanking): SnapshotRanking {
+    return {
+      ...ranking,
+      entries: ranking.entries.map((entry) => ({
+        id: entry.id,
+        points: entry.points,
+        fivePointVotes: entry.fivePointVotes,
+        threePointVotes: entry.threePointVotes,
+        percentage: entry.percentage,
+        position: entry.position,
+        ...(entry.eventsParticipated === undefined
+          ? {}
+          : { eventsParticipated: entry.eventsParticipated }),
+      })),
+    };
   }
 
   // Also repairs interrupted writes and backfills events closed before snapshots existed.
@@ -88,14 +143,6 @@ export class RankingSnapshotsService {
       ])
       .session(session)
       .exec();
-    const participants = await this.users
-      .find({ _id: { $in: event.participants } })
-      .select('_id name avatar')
-      .session(session)
-      .exec();
-    const names = new Map(
-      participants.map((user) => [user._id.toHexString(), user]),
-    );
     const scores = new Map(
       counts.map((score) => [score._id.toHexString(), score]),
     );
@@ -107,17 +154,18 @@ export class RankingSnapshotsService {
     ];
     const candidates = ids.map((id) => ({
       id,
-      name: names.get(id)?.name ?? 'Usuario eliminado',
-      avatar: names.get(id)?.avatar ?? null,
+      name: '',
       points: scores.get(id)?.points ?? 0,
       fivePointVotes: scores.get(id)?.fivePointVotes ?? 0,
       threePointVotes: scores.get(id)?.threePointVotes ?? 0,
     }));
-    const eventRanking = Ranking.from(
-      candidates,
-      counts.reduce((sum, score) => sum + score.points, 0),
-      { id: eventId, status: EventStatus.CLOSED },
-    ) as Ranking & { entries: SnapshotEntry[] };
+    const eventRanking = this.withoutProfiles(
+      Ranking.from(
+        candidates,
+        counts.reduce((sum, score) => sum + score.points, 0),
+        { id: eventId, status: EventStatus.CLOSED },
+      ),
+    );
     const totalVotes = await this.votes
       .countDocuments({ eventId: event._id })
       .session(session)
@@ -170,7 +218,7 @@ export class RankingSnapshotsService {
   // Derive participation from individual closed-event snapshots, including old
   // snapshots that predate the participation field. Never sum cumulative totals.
   async withParticipation(
-    entries: RankingEntry[],
+    entries: SnapshotEntry[],
     editionId?: string,
   ): Promise<Ranking> {
     const contributions = await this.snapshots
@@ -188,17 +236,20 @@ export class RankingSnapshotsService {
       ))
         counts.set(id, (counts.get(id) ?? 0) + 1);
     }
-    return Ranking.from(
-      entries.map((entry) => ({
-        ...entry,
-        eventsParticipated:
-          counts.get(entry.id) ?? entry.eventsParticipated ?? 0,
-      })),
-      entries.reduce((sum, entry) => sum + entry.points, 0),
+    return this.withProfiles(
+      Ranking.from(
+        entries.map((entry) => ({
+          ...entry,
+          name: '',
+          eventsParticipated:
+            counts.get(entry.id) ?? entry.eventsParticipated ?? 0,
+        })),
+        entries.reduce((sum, entry) => sum + entry.points, 0),
+      ),
     );
   }
 
-  combine(entries: SnapshotEntry[]): Ranking {
+  combine(entries: SnapshotEntry[]): SnapshotRanking {
     const totals = new Map<string, SnapshotEntry>();
     for (const entry of entries) {
       const prior = totals.get(entry.id);
@@ -210,9 +261,11 @@ export class RankingSnapshotsService {
         threePointVotes: (prior?.threePointVotes ?? 0) + entry.threePointVotes,
       });
     }
-    return Ranking.from(
-      [...totals.values()],
-      [...totals.values()].reduce((sum, entry) => sum + entry.points, 0),
+    return this.withoutProfiles(
+      Ranking.from(
+        [...totals.values()].map((entry) => ({ ...entry, name: '' })),
+        [...totals.values()].reduce((sum, entry) => sum + entry.points, 0),
+      ),
     );
   }
 

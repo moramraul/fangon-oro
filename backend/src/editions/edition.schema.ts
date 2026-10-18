@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Schema as MongoSchema, Types } from 'mongoose';
-import { Ranking } from '../rankings/models/ranking.model';
+import { SnapshotRanking } from '../rankings/snapshots/ranking-snapshot.schema';
 
 @Schema({ collection: 'editions', timestamps: true })
 export class Edition {
@@ -13,7 +13,7 @@ export class Edition {
   @Prop() closedAt?: Date;
   @Prop({ type: MongoSchema.Types.ObjectId }) closedBy?: Types.ObjectId;
   @Prop({ default: 0 }) revision!: number;
-  @Prop({ type: MongoSchema.Types.Mixed }) finalRanking?: Ranking;
+  @Prop({ type: MongoSchema.Types.Mixed }) finalRanking?: SnapshotRanking;
 }
 export const EditionSchema = SchemaFactory.createForClass(Edition);
 EditionSchema.index(

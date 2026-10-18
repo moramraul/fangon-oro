@@ -2,9 +2,10 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Schema as MongoSchema } from 'mongoose';
 import { Ranking, RankingEntry } from '../models/ranking.model';
 
-export interface SnapshotEntry extends RankingEntry {
-  avatar: string | null;
-}
+export type SnapshotEntry = Omit<RankingEntry, 'name' | 'avatar'>;
+export type SnapshotRanking = Omit<Ranking, 'entries'> & {
+  entries: SnapshotEntry[];
+};
 
 @Schema({ collection: 'ranking_snapshots' })
 export class RankingSnapshot {
@@ -34,10 +35,10 @@ export class RankingSnapshot {
   };
 
   @Prop({ type: MongoSchema.Types.Mixed })
-  eventRanking?: Ranking & { entries: SnapshotEntry[] };
+  eventRanking?: SnapshotRanking;
 
   @Prop({ type: MongoSchema.Types.Mixed })
-  generalRanking?: Ranking;
+  generalRanking?: SnapshotRanking;
 
   @Prop({ type: MongoSchema.Types.Mixed })
   editions?: Record<string, SnapshotEntry[]>;

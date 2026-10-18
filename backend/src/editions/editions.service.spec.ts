@@ -46,6 +46,7 @@ describe('EditionsService', () => {
     find: jest.fn(),
   };
   const snapshots = {
+    withoutProfiles: jest.fn(),
     initialize: jest.fn(),
     capture: jest.fn(),
     latest: jest.fn(),
@@ -54,6 +55,9 @@ describe('EditionsService', () => {
   let service: EditionsService;
   beforeEach(() => {
     jest.resetAllMocks();
+    snapshots.withoutProfiles.mockImplementation(
+      RankingSnapshotsService.prototype.withoutProfiles,
+    );
     jest.useFakeTimers().setSystemTime(new Date('2026-12-20T09:00:00Z'));
     editions.findOneAndUpdate.mockReturnValue(
       query({ ...edition, status: 'closed', closedAt: new Date() }),
@@ -95,7 +99,8 @@ describe('EditionsService', () => {
   it('atomically finalizes the edition, expires pending deadlines and creates the next opening one minute later', async () => {
     const result = await service.close(id.toHexString(), userId);
     expect(result.closed.finalRanking.totalPoints).toBe(9);
-    expect(result.closed.finalRanking.entries[0].name).toBe('Original');
+    expect(result.closed.finalRanking.entries[0]).not.toHaveProperty('name');
+    expect(result.closed.finalRanking.entries[0]).not.toHaveProperty('avatar');
     expect(result.opened.opensAt).toBe('2026-12-20T09:01:00.000Z');
     expect(result.opened.name).toBe('Fangón de Oro 2027');
     expect(result.opened.expectedEndsAt).toBe('2027-12-31T22:59:59.999Z');

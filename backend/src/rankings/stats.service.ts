@@ -1,7 +1,7 @@
 import { EditionsService } from '../editions/editions.service';
 import { Types } from 'mongoose';
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { RankingEntry } from './models/ranking.model';
+import { SnapshotEntry } from './snapshots/ranking-snapshot.schema';
 import { RankingSnapshotsService } from './snapshots/ranking-snapshots.service';
 
 @Injectable()
@@ -27,7 +27,7 @@ export class StatsService {
           ? await this.editions.find(selection)
           : await this.editions.current();
     const editionId = edition?._id.toHexString() ?? null;
-    const entries: (RankingEntry & { avatar?: string | null })[] =
+    const entries: SnapshotEntry[] =
       scope === 'global'
         ? (snapshot?.generalRanking?.entries ?? [])
         : edition?.status === 'closed'

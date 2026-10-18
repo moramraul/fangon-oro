@@ -158,9 +158,11 @@ export class EditionsService implements OnModuleInit {
         await this.snapshots.capture(event._id.toHexString(), session);
       const snapshot = await this.snapshots.latest(session);
       const entries = snapshot?.editions?.[edition._id.toHexString()] ?? [];
-      const finalRanking = Ranking.from(
-        entries,
-        entries.reduce((sum, entry) => sum + entry.points, 0),
+      const finalRanking = this.snapshots.withoutProfiles(
+        Ranking.from(
+          entries.map((entry) => ({ ...entry, name: '' })),
+          entries.reduce((sum, entry) => sum + entry.points, 0),
+        ),
       );
       await this.editions
         .updateOne(

@@ -4,6 +4,7 @@ import { User } from '../../users/schemas/user.schema';
 import { Vote } from '../../votes/schemas/vote.schema';
 import { RankingSnapshot, SnapshotEntry } from './ranking-snapshot.schema';
 import { RankingSnapshotsService } from './ranking-snapshots.service';
+import { Ranking } from '../models/ranking.model';
 
 function query(value: unknown) {
   const result = {
@@ -118,12 +119,20 @@ describe('RankingSnapshotsService', () => {
       editionId: editionId.toHexString(),
     });
     expect(saved.eventRanking?.entries[0]).toMatchObject({
-      name: 'Ana',
-      avatar: 'avatar.png',
+      id: userId.toHexString(),
       points: 9,
       position: 1,
     });
     expect(saved.generalRanking?.totalPoints).toBe(9);
+    for (const entry of [
+      ...saved.eventRanking!.entries,
+      ...saved.generalRanking!.entries,
+      ...saved.editions![editionId.toHexString()],
+    ]) {
+      expect(entry).not.toHaveProperty('name');
+      expect(entry).not.toHaveProperty('avatar');
+    }
+    expect(users.find).not.toHaveBeenCalled();
     expect(saved.editions?.[editionId.toHexString()][0].points).toBe(9);
     expect(snapshots.create.mock.calls[0][1]).toEqual({ session });
     expect(snapshots.findOneAndUpdate).toHaveBeenCalledWith(
@@ -164,10 +173,85 @@ describe('RankingSnapshotsService', () => {
       threePointVotes: 1,
     });
     expect(saved.editions?.[editionId.toHexString()][0].points).toBe(14);
+    expect(saved.generalRanking?.entries[0]).not.toHaveProperty('name');
+    expect(saved.generalRanking?.entries[0]).not.toHaveProperty('avatar');
     expect(events.findOne).toHaveBeenCalledTimes(1);
     // Only the new event's ballots are read; historical totals come from its
     // event snapshot, never from the previous general ranking or live ballots.
     expect(votes.aggregate).toHaveBeenCalledTimes(1);
+  });
+
+  it('resolves current profiles by ID on each event read without changing saved results', async () => {
+    const ranking = Ranking.from(
+      [
+        {
+          id: userId.toHexString(),
+          name: 'Nombre antiguo',
+          points: 9,
+        },
+      ],
+      9,
+      { id: id.toHexString(), status: EventStatus.CLOSED },
+    );
+    const calculatedAt = new Date('2026-10-01');
+    ranking.entries[0]!.avatar = 'old.jpg';
+    snapshots.findOne.mockReturnValue(
+      query({ eventRanking: ranking, calculatedAt }),
+    );
+    const first = await service.forEvent(id.toHexString());
+    expect(first?.eventRanking?.entries[0]).toMatchObject({
+      name: 'Ana',
+      avatar: 'avatar.png',
+      points: 9,
+    });
+    users.find.mockReturnValue(
+      query([{ _id: userId, name: 'Nombre nuevo', avatar: 'new.jpg' }]),
+    );
+    const renamed = await service.forEvent(id.toHexString());
+    expect(renamed?.eventRanking?.entries[0]).toEqual({
+      ...ranking.entries[0],
+      name: 'Nombre nuevo',
+      avatar: 'new.jpg',
+    });
+    expect(renamed?.eventRanking?.leaderIds).toEqual(ranking.leaderIds);
+    expect(renamed?.calculatedAt).toEqual(calculatedAt);
+    expect(users.find).toHaveBeenLastCalledWith({
+      _id: { $in: [userId.toHexString()] },
+    });
+    expect(ranking.entries[0].name).toBe('Nombre antiguo');
+    users.find.mockReturnValue(query([]));
+    const deleted = await service.forEvent(id.toHexString());
+    expect(deleted?.eventRanking?.entries[0]).toEqual({
+      ...ranking.entries[0],
+      name: 'Usuario eliminado',
+      avatar: null,
+    });
+  });
+
+  it('hydrates ID-only general and edition entries and clears a removed avatar', async () => {
+    snapshots.find.mockReturnValue(
+      query([{ eventRanking: { entries: [{ id: userId.toHexString() }] } }]),
+    );
+    users.find.mockReturnValue(query([{ _id: userId, name: 'Nombre actual' }]));
+    const entry: SnapshotEntry = {
+      id: userId.toHexString(),
+      points: 9,
+      fivePointVotes: 1,
+      threePointVotes: 1,
+      position: 1,
+      percentage: 100,
+    };
+    const result = await service.withParticipation(
+      [entry],
+      editionId.toHexString(),
+    );
+    expect(result.entries[0]).toEqual({
+      ...entry,
+      name: 'Nombre actual',
+      avatar: null,
+      eventsParticipated: 1,
+    });
+    expect(result.totalPoints).toBe(9);
   });
 
   it('does not save or count an event twice', async () => {
