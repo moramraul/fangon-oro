@@ -1,0 +1,114 @@
+.users-admin {
+  width: 100%;
+  max-width: 850px;
+  margin: 0 auto;
+  padding: 32px 20px 60px;
+}
+.back {
+  display: inline-block;
+  margin-bottom: 30px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.eyebrow {
+  color: var(--gold);
+  font-size: 11px;
+  letter-spacing: 2px;
+}
+header p,
+.count {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.user-list {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0;
+  border: 1px solid #454133;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.user-list li {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background: #ffffff03;
+}
+.user-list li + li {
+  border-top: 1px solid #ffffff12;
+}
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #d9b66518;
+  color: var(--gold);
+}
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.details {
+  display: grid;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.details span,
+.details small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.details .active {
+  color: var(--gold);
+}
+.actions {
+  display: flex;
+  gap: 10px;
+}
+button {
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--gold);
+  font-size: 13px;
+}
+button:hover:not(:disabled) {
+  background: #d9b66515;
+}
+.danger {
+  color: #ffb4ab;
+  border-color: #ffb4ab70;
+}
+.error {
+  color: #ffb4ab;
+}
+.success {
+  color: var(--gold);
+}
+.success:empty {
+  margin: 0;
+}
+@media (max-width: 560px) {
+  .user-list li {
+    flex-wrap: wrap;
+    padding: 16px;
+    gap: 12px;
+  }
+  .actions {
+    width: 100%;
+  }
+  .actions button {
+    flex: 1;
+  }
+}

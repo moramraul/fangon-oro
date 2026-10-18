@@ -18,6 +18,7 @@ const auth = useAuthStore()
     </div>
     <MemberCard :user="user" />
     <nav class="profile-actions" aria-label="Acciones de perfil">
+      <a v-if="user.role === 'ADMIN'" class="profile-action" href="#/admin/users">Usuarios</a>
       <a class="profile-action" href="#/profile/edit">Modificar mi perfil</a>
       <a v-if="user.role === 'ADMIN'" class="profile-action" href="#/events/manage">
         Crear o modificar evento

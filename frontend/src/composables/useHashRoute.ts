@@ -12,6 +12,7 @@ type Route =
   | 'events'
   | 'past-events'
   | 'manage-events'
+  | 'manage-users'
   | 'vote'
 export function readRoute(hash = location.hash): Route {
   if (hash === '#/forgot-password') return 'forgot-password'
@@ -24,6 +25,7 @@ export function readRoute(hash = location.hash): Route {
   if (hash === '#/events') return 'events'
   if (hash === '#/events/past') return 'past-events'
   if (hash === '#/events/manage') return 'manage-events'
+  if (hash === '#/admin/users') return 'manage-users'
   if (hash === '#/register') return 'register'
   if (hash === '#/profile') return 'profile'
   return 'login'

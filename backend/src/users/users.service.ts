@@ -94,13 +94,14 @@ export class UsersService {
   async findAll() {
     const users = await this.userModel
       .find()
-      .select('_id name email role isActive')
+      .select('_id name email avatar role isActive')
       .sort({ name: 1 })
       .exec();
     return users.map((user) => ({
       id: user._id.toHexString(),
       name: user.name,
       email: user.email,
+      avatar: user.avatar,
       role: user.role,
       isActive: user.isActive,
     }));
@@ -147,6 +148,14 @@ export class UsersService {
       role: user.role,
       isActive,
     };
+  }
+
+  async remove(id: string) {
+    if (!Types.ObjectId.isValid(id))
+      throw new NotFoundException('User not found');
+    const user = await this.userModel.findByIdAndDelete(id).exec();
+    if (!user) throw new NotFoundException('User not found');
+    return { id: user._id.toHexString() };
   }
 
   async hasPassword(id: string) {
