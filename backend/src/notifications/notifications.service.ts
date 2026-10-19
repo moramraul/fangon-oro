@@ -86,7 +86,7 @@ export class NotificationsService {
             try {
               const votingPeriod = `Las votaciones permanecerán abiertas entre ${dates.format(event.startDate)} y ${dates.format(event.endDate)} (horario de Madrid, Europe/Madrid).`;
               const votingRules =
-                'Podrás votar una sola vez, repartiendo 5, 3 y 1 punto entre otros tres participantes distintos. No podrás votarte a ti mismo.';
+                'Podrás votar una sola vez, repartiendo 5, 3 y 1 punto entre otros tres participantes distintos. No podrás votarte a ti mismo. Una vez votes, no podrás volver atrás ni editar tu voto. ¡No te precipites!';
               const closingRules =
                 'El evento se cerrará cuando llegue la fecha límite, hayan votado todos los participantes o lo cierre el administrador, lo que ocurra primero. La clasificación se podrá consultar a partir de ese momento.';
               await transport.sendMail({
