@@ -129,8 +129,11 @@ describe('NotificationsService', () => {
     );
     const message = sendMail.mock.calls[0][0];
     expect(message.text).toContain(event.name);
-    expect(message.text).toContain('Inicio:');
-    expect(message.text).toContain('Fin:');
+    expect(message.text).toContain(
+      'Las votaciones permanecerán abiertas entre',
+    );
+    expect(message.text).toContain('1 de octubre de 2099');
+    expect(message.text).toContain('2 de octubre de 2099');
     expect(message.text).toContain('Europe/Madrid');
     expect(message.cc).toBeUndefined();
     expect(message.bcc).toBeUndefined();

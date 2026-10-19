@@ -84,6 +84,11 @@ export class NotificationsService {
         await Promise.all(
           recipients.slice(offset, offset + 5).map(async (recipient) => {
             try {
+              const votingPeriod = `Las votaciones permanecerán abiertas entre ${dates.format(event.startDate)} y ${dates.format(event.endDate)} (horario de Madrid, Europe/Madrid).`;
+              const votingRules =
+                'Podrás votar una sola vez, repartiendo 5, 3 y 1 punto entre otros tres participantes distintos. No podrás votarte a ti mismo.';
+              const closingRules =
+                'El evento se cerrará cuando llegue la fecha límite, hayan votado todos los participantes o lo cierre el administrador, lo que ocurra primero. La clasificación se podrá consultar a partir de ese momento.';
               await transport.sendMail({
                 from: this.from,
                 attachments: [
@@ -97,7 +102,7 @@ export class NotificationsService {
                 subject: `Has sido incluido en el evento: ${event.name.replace(/[\r\n]/g, ' ')}`,
                 html: mailTemplate(
                   'Fangón, tienes una cita.',
-                  `<p>Hola ${escapeHtml(recipient.name)}, has sido incluido en un evento.</p><p style="color:#e8b954;font-family:Georgia,serif;font-size:26px">${escapeHtml(event.name)}</p><table role="presentation" width="100%" style="border:1px solid #6e542c;text-align:left"><tr><td style="padding:20px">Inicio: ${escapeHtml(dates.format(event.startDate))}<br><br>Fin: ${escapeHtml(dates.format(event.endDate))}<br><br>Horario: Europe/Madrid</td></tr></table><p>Prepárate, reúne tu criterio y afila el voto…</p><p style="color:#e8b954;font-weight:bold">A GUARREARLO TODO.</p>`,
+                  `<p>Hola ${escapeHtml(recipient.name)},</p><p>Has sido incluido en el evento <strong>${escapeHtml(event.name)}</strong>.</p><table role="presentation" width="100%" style="border:1px solid #6e542c;text-align:left"><tr><td style="padding:20px">${escapeHtml(votingPeriod)}</td></tr></table><p>${escapeHtml(votingRules)}</p><p>${escapeHtml(closingRules)}</p><p style="color:#e8b954;font-weight:bold">Suerte, fangón.</p>`,
                   this.frontendUrl
                     ? `${this.frontendUrl.split('#')[0]}#/events`
                     : undefined,
@@ -107,9 +112,13 @@ export class NotificationsService {
                   '',
                   `Has sido incluido en el evento «${event.name}».`,
                   '',
-                  `Inicio: ${dates.format(event.startDate)}`,
-                  `Fin: ${dates.format(event.endDate)}`,
-                  'Horario: Europe/Madrid.',
+                  votingPeriod,
+                  '',
+                  votingRules,
+                  '',
+                  closingRules,
+                  '',
+                  'Suerte, fangón.',
                   '',
                   this.frontendUrl
                     ? `Accede a la aplicación para consultar el evento y votar: ${this.frontendUrl}`
