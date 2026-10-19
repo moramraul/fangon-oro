@@ -12,19 +12,17 @@ interface Winner {
 }
 type Award = 'gold' | 'silver' | 'bronze' | 'goldenUnderpants'
 const assetBase = import.meta.env.BASE_URL
-const banners: { key: Award; title: string; number: string; subtitle: string }[] = [
-  { key: 'gold', title: 'Fangón de Oro', number: '01', subtitle: 'En lo más alto' },
+const banners: { key: Award; title: string; subtitle: string }[] = [
+  { key: 'gold', title: 'Fangón de Oro', subtitle: 'En lo más alto' },
   {
     key: 'silver',
     title: 'Fangón de Plata',
-    number: '02',
     subtitle: 'Una temporada para recordar',
   },
-  { key: 'bronze', title: 'Fangón de Bronce', number: '03', subtitle: 'Un sitio en el podio' },
+  { key: 'bronze', title: 'Fangón de Bronce', subtitle: 'Un sitio en el podio' },
   {
     key: 'goldenUnderpants',
     title: 'Calzón de Oro',
-    number: '✦',
     subtitle: 'El premio que nadie quiere ganar',
   },
 ]
@@ -91,10 +89,6 @@ onUnmounted(() => revision++)
         </select>
       </label>
       <p v-else-if="result">{{ result.edition.name }}</p>
-      <p v-if="result?.preview" role="status">
-        Vista previa solo para administradores. Resultados provisionales de eventos cerrados; los
-        premios y el sorteo de desempate se fijarán al cerrar la temporada.
-      </p>
     </header>
     <p v-if="loading" role="status">Preparando el palmarés…</p>
     <div v-else-if="error" role="alert">
@@ -116,9 +110,6 @@ onUnmounted(() => revision++)
             width="2048"
             height="768"
           />
-          <span v-if="banner.key === 'goldenUnderpants'" class="award-shame-stamp"
-            >Premio de<br />la vergüenza</span
-          >
         </div>
         <div class="award-content">
           <div class="award-caption">
@@ -127,7 +118,6 @@ onUnmounted(() => revision++)
             <span v-if="banner.key === 'goldenUnderpants'" class="award-last-place"
               >Último de la clasificación</span
             >
-            <span v-else class="award-place">{{ banner.number }} · PODIO</span>
           </div>
           <div class="award-recipients">
             <div v-for="winner in result.awards[banner.key]" :key="winner.id" class="award-person">
@@ -142,6 +132,9 @@ onUnmounted(() => revision++)
             </div>
             <p v-if="!result.awards[banner.key].length" class="award-empty">Premio desierto</p>
           </div>
+          <span v-if="banner.key === 'goldenUnderpants'" class="award-shame-stamp"
+            >Premio de<br />la vergüenza</span
+          >
         </div>
       </article>
     </div>

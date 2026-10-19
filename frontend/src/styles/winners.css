@@ -93,14 +93,10 @@
   font-size: clamp(22px, 3vw, 30px);
   margin: 0 0 10px;
 }
-.award-place,
 .award-last-place {
   font-size: 10px;
   letter-spacing: 0.13em;
   text-transform: uppercase;
-}
-.award-place {
-  color: var(--muted);
 }
 .award-recipients {
   display: grid;
@@ -148,12 +144,16 @@
   border-bottom: 4px solid #9d3934;
 }
 .award-banner--goldenUnderpants .award-content {
+  position: relative;
+  overflow: hidden;
+  min-height: 150px;
   background: repeating-linear-gradient(135deg, #ffffff03 0 2px, transparent 2px 12px), #261514;
 }
 .award-shame-stamp {
   position: absolute;
   right: 5%;
-  bottom: 10%;
+  bottom: 24px;
+  z-index: 1;
   padding: 12px 20px;
   transform: rotate(-9deg);
   border: 3px solid #ffaaa0;
@@ -190,7 +190,7 @@
   .award-shame-stamp {
     padding: 10px 14px;
     right: 4%;
-    bottom: 9%;
+    bottom: 24px;
     border-width: 2px;
   }
   .award-person img,
