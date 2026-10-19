@@ -1,0 +1,201 @@
+﻿.winners {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+  padding: 48px 24px 80px;
+}
+.winners-heading {
+  text-align: center;
+  margin-bottom: 44px;
+}
+.winners-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  line-height: 1.7;
+}
+.winners-heading h1 {
+  font-size: clamp(42px, 7vw, 76px);
+  margin: 16px 0;
+  color: var(--gold);
+}
+.winners-heading h1 span {
+  display: block;
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-top: 14px;
+}
+.winners-heading > p {
+  color: var(--muted);
+  line-height: 1.7;
+}
+.winners-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  max-width: 100%;
+}
+.winners select,
+.winners button {
+  background: #191714;
+  color: var(--gold);
+  border: 1px solid #73603d;
+  border-radius: 6px;
+  padding: 12px;
+  font: inherit;
+  max-width: 100%;
+}
+.winners-banners {
+  display: grid;
+  gap: 28px;
+}
+.award-banner {
+  --award: #e0bb66;
+  overflow: hidden;
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--award) 45%, transparent);
+  border-radius: 14px;
+  background: #171512;
+  color: var(--award);
+}
+.award-banner--silver {
+  --award: #d2d8e1;
+}
+.award-banner--bronze {
+  --award: #ce926b;
+}
+.award-artwork {
+  position: relative;
+}
+.award-artwork > img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 8 / 3;
+}
+.award-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  padding: 24px 32px;
+  background: linear-gradient(110deg, color-mix(in srgb, var(--award) 7%, #171512), #171512);
+}
+.award-caption {
+  min-width: 0;
+}
+.award-caption .winners-eyebrow {
+  margin: 0 0 6px;
+}
+.award-caption h2 {
+  font-size: clamp(22px, 3vw, 30px);
+  margin: 0 0 10px;
+}
+.award-place,
+.award-last-place {
+  font-size: 10px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+.award-place {
+  color: var(--muted);
+}
+.award-recipients {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.award-person {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.award-person img,
+.award-avatar {
+  width: 60px;
+  height: 60px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--award);
+}
+.award-avatar {
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+  background: #ffffff08;
+}
+.award-person h3 {
+  margin: 0;
+  color: #faf6ed;
+  font-size: clamp(22px, 3vw, 32px);
+  overflow-wrap: anywhere;
+}
+.award-person p,
+.award-empty {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+.award-banner--goldenUnderpants {
+  --award: #ff9388;
+  margin-top: 32px;
+  border: 1px dashed #d96e62;
+}
+.award-banner--goldenUnderpants .award-artwork {
+  border-bottom: 4px solid #9d3934;
+}
+.award-banner--goldenUnderpants .award-content {
+  background: repeating-linear-gradient(135deg, #ffffff03 0 2px, transparent 2px 12px), #261514;
+}
+.award-shame-stamp {
+  position: absolute;
+  right: 5%;
+  bottom: 10%;
+  padding: 12px 20px;
+  transform: rotate(-9deg);
+  border: 3px solid #ffaaa0;
+  outline: 1px solid #ffaaa0;
+  outline-offset: -7px;
+  border-radius: 4px;
+  background: #751e1ef2;
+  box-shadow: 0 5px 20px #0009;
+  color: #fff0e9;
+  font-size: clamp(14px, 2.5vw, 30px);
+  font-weight: 900;
+  letter-spacing: 0.09em;
+  line-height: 1.25;
+  text-align: center;
+  text-transform: uppercase;
+}
+.winners :focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 4px;
+}
+@media (max-width: 640px) {
+  .winners {
+    padding: 32px 16px 56px;
+  }
+  .award-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 20px;
+    padding: 22px;
+  }
+  .award-banner {
+    border-radius: 10px;
+  }
+  .award-shame-stamp {
+    padding: 10px 14px;
+    right: 4%;
+    bottom: 9%;
+    border-width: 2px;
+  }
+  .award-person img,
+  .award-avatar {
+    width: 52px;
+    height: 52px;
+  }
+}

@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Schema as MongoSchema, Types } from 'mongoose';
 import { SnapshotRanking } from '../rankings/snapshots/ranking-snapshot.schema';
+import { editionAwards } from './awards';
 
 @Schema({ collection: 'editions', timestamps: true })
 export class Edition {
@@ -14,6 +15,9 @@ export class Edition {
   @Prop({ type: MongoSchema.Types.ObjectId }) closedBy?: Types.ObjectId;
   @Prop({ default: 0 }) revision!: number;
   @Prop({ type: MongoSchema.Types.Mixed }) finalRanking?: SnapshotRanking;
+  @Prop({ type: MongoSchema.Types.Mixed }) awards?: ReturnType<
+    typeof editionAwards
+  >;
 }
 export const EditionSchema = SchemaFactory.createForClass(Edition);
 EditionSchema.index(

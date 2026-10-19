@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { ApiError, request, type EditionSummary } from '../../api'
 import { useAuthStore } from '../../stores/auth'
+import { refreshWinners } from '../../composables/useWinners'
 const auth = useAuthStore()
 const editions = ref<EditionSummary[]>([])
 const loading = ref(true)
@@ -75,6 +76,7 @@ async function close() {
       auth.token ?? undefined,
     )
     reviewing.value = false
+    await refreshWinners(auth.token)
     success.value = `${result.closed.name} cerrada. ${result.opened.name} admitirá eventos desde ${dates.format(new Date(result.opened.opensAt))}.`
     await load()
   } catch (cause) {
@@ -112,7 +114,7 @@ onMounted(() => void load())
         <p>
           Se fijará la clasificación definitiva y se creará la siguiente edición, que admitirá
           eventos un minuto después. El resultado final incluirá todos los cierres que se hayan
-          completado al confirmar.
+          completado al confirmar. También se publicarán los premios en Ganadores.
         </p>
         <p>Si queda algún evento abierto, el cierre no se realizará.</p>
         <button type="button" :disabled="saving" @click="close">

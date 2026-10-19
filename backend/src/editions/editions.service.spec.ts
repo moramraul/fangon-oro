@@ -32,6 +32,7 @@ describe('EditionsService', () => {
     init: jest.fn(),
     exists: jest.fn(),
     findOne: jest.fn(),
+    findById: jest.fn(),
     findOneAndUpdate: jest.fn(),
     updateOne: jest.fn(),
     create: jest.fn<
@@ -50,6 +51,7 @@ describe('EditionsService', () => {
     initialize: jest.fn(),
     capture: jest.fn(),
     latest: jest.fn(),
+    withProfiles: jest.fn(),
   };
   const connection = { transaction: jest.fn() };
   let service: EditionsService;
@@ -129,6 +131,80 @@ describe('EditionsService', () => {
     );
     expect(editions.create).not.toHaveBeenCalled();
     expect(snapshots.capture).not.toHaveBeenCalled();
+  });
+
+  it('does not expose awards before edition closure', async () => {
+    editions.findById.mockReturnValue(query(edition));
+    await expect(service.winners(id.toHexString())).rejects.toMatchObject({
+      status: 404,
+    });
+    expect(snapshots.latest).not.toHaveBeenCalled();
+  });
+
+  it('allows admin previews without saving awards or closing the edition', async () => {
+    editions.findById.mockReturnValue(query(edition));
+    snapshots.withProfiles.mockImplementation(async (ranking) => ranking);
+    const result = await service.winners(id.toHexString(), 'ADMIN');
+    expect(result.preview).toBe(true);
+    expect(result.edition.status).toBe('open');
+    expect(result.awards.gold[0].points).toBe(9);
+    expect(editions.updateOne).not.toHaveBeenCalled();
+    expect(editions.findOneAndUpdate).not.toHaveBeenCalled();
+    expect(editions.create).not.toHaveBeenCalled();
+  });
+
+  it('allows admin previews before the first event closes', async () => {
+    editions.findById.mockReturnValue(query(edition));
+    snapshots.latest.mockResolvedValue(null);
+    snapshots.withProfiles.mockImplementation(async (ranking) => ranking);
+    const result = await service.winners(id.toHexString(), 'ADMIN');
+    expect(result.preview).toBe(true);
+    expect(result.awards.gold).toEqual([]);
+    expect(result.awards.goldenUnderpants).toEqual([]);
+  });
+
+  it('serves legacy closed editions from the frozen ranking with current profiles', async () => {
+    const closed = (await service.close(id.toHexString(), userId)).closed;
+    editions.findById.mockReturnValue(
+      query({
+        ...edition,
+        status: 'closed',
+        closedAt: new Date(),
+        finalRanking: closed.finalRanking,
+      }),
+    );
+    snapshots.withProfiles.mockResolvedValue({
+      ...closed.finalRanking,
+      entries: closed.finalRanking.entries.map((entry) => ({
+        ...entry,
+        name: 'Nombre actual',
+        avatar: 'current.jpg',
+      })),
+    });
+    editions.findOneAndUpdate.mockReturnValue(query({ awards: closed.awards }));
+    const result = await service.winners(id.toHexString());
+    expect(result.awards.gold[0]).toMatchObject({
+      id: userId.toHexString(),
+      name: 'Nombre actual',
+      avatar: 'current.jpg',
+      points: 9,
+    });
+    expect(result.awards.goldenUnderpants).toEqual(result.awards.gold);
+  });
+
+  it('saves generated awards with the final ranking in the closure transaction', async () => {
+    const result = await service.close(id.toHexString(), userId);
+    expect(result.closed.awards.gold[0].id).toBe(userId.toHexString());
+    expect(editions.updateOne).toHaveBeenCalledWith(
+      { _id: id },
+      {
+        $set: {
+          finalRanking: result.closed.finalRanking,
+          awards: result.closed.awards,
+        },
+      },
+      { session },
+    );
   });
 
   it('rejects a repeated closure without creating another edition', async () => {

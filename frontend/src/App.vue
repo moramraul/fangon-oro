@@ -15,6 +15,7 @@ import VotingView from './views/VotingView.vue'
 import OverviewView from './views/OverviewView.vue'
 import RankingsView from './views/RankingsView.vue'
 import StatsView from './views/StatsView.vue'
+import WinnersView from './views/WinnersView.vue'
 import PastEventsView from './views/PastEventsView.vue'
 import { useAuthStore } from './stores/auth'
 import { useHashRoute } from './composables/useHashRoute'
@@ -33,6 +34,7 @@ watch([route, () => auth.user, () => auth.restoring], () => {
       'overview',
       'rankings',
       'stats',
+      'winners',
       'profile',
       'edit-profile',
       'events',
@@ -61,6 +63,7 @@ onMounted(() => void auth.restore())
     <OverviewView v-else-if="(route === 'overview' || route === 'events') && auth.user" />
     <RankingsView v-else-if="route === 'rankings' && auth.user" />
     <StatsView v-else-if="route === 'stats' && auth.user" />
+    <WinnersView v-else-if="route === 'winners' && auth.user" />
     <PastEventsView v-else-if="route === 'past-events' && auth.user" />
     <EventCreateView v-else-if="route === 'manage-events' && auth.user?.role === 'ADMIN'" />
     <UsersAdminView v-else-if="route === 'manage-users' && auth.user?.role === 'ADMIN'" />

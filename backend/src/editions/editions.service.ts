@@ -12,6 +12,7 @@ import { Event, EventStatus } from '../events/schemas/event.schema';
 import { RankingSnapshotsService } from '../rankings/snapshots/ranking-snapshots.service';
 import { Ranking } from '../rankings/models/ranking.model';
 import { editionYear } from '../votes/edition';
+import { editionAwards } from './awards';
 
 @Injectable()
 export class EditionsService implements OnModuleInit {
@@ -70,6 +71,58 @@ export class EditionsService implements OnModuleInit {
     return (await this.editions.find().sort({ number: -1 }).exec()).map(
       (edition) => this.summary(edition),
     );
+  }
+
+  async winners(id: string, role = 'USER') {
+    const edition = await this.find(id);
+    const preview = edition.status === 'open';
+    if ((preview && role !== 'ADMIN') || (!preview && !edition.finalRanking))
+      throw new NotFoundException(
+        'Los premios solo están disponibles después del cierre',
+      );
+    const snapshot = preview ? await this.snapshots.latest() : null;
+    const entries = snapshot?.editions?.[edition._id.toHexString()] ?? [];
+    const sourceRanking = preview
+      ? Ranking.from(
+          entries.map((entry) => ({ ...entry, name: '' })),
+          entries.reduce((sum, entry) => sum + entry.points, 0),
+        )
+      : edition.finalRanking!;
+    // Preview never persists awards or performs the final random draw.
+    let awards = preview
+      ? editionAwards(sourceRanking, () => 0)
+      : edition.awards;
+    if (!awards) {
+      // Persist legacy awards once, so concurrent readers cannot reroll a tie.
+      const saved = await this.editions
+        .findOneAndUpdate(
+          { _id: edition._id, status: 'closed', awards: { $exists: false } },
+          { $set: { awards: editionAwards(sourceRanking) } },
+          { new: true },
+        )
+        .exec();
+      awards = saved?.awards ?? (await this.find(id)).awards;
+      if (!awards)
+        throw new ConflictException('No se han podido guardar los premios');
+    }
+    const ranking = await this.snapshots.withProfiles(sourceRanking);
+    const profiles = new Map(ranking.entries.map((entry) => [entry.id, entry]));
+    const resolve = (entries: typeof awards.gold) =>
+      entries.map((entry) => ({
+        ...entry,
+        name: profiles.get(entry.id)?.name ?? 'Usuario eliminado',
+        avatar: profiles.get(entry.id)?.avatar ?? null,
+      }));
+    return {
+      edition: this.summary(edition),
+      preview,
+      awards: {
+        gold: resolve(awards.gold),
+        silver: resolve(awards.silver),
+        bronze: resolve(awards.bronze),
+        goldenUnderpants: resolve(awards.goldenUnderpants),
+      },
+    };
   }
 
   summary(edition: Edition & { _id: Types.ObjectId }) {
@@ -164,10 +217,11 @@ export class EditionsService implements OnModuleInit {
           entries.reduce((sum, entry) => sum + entry.points, 0),
         ),
       );
+      const awards = editionAwards(finalRanking);
       await this.editions
         .updateOne(
           { _id: edition._id },
-          { $set: { finalRanking } },
+          { $set: { finalRanking, awards } },
           { session },
         )
         .exec();
@@ -178,7 +232,7 @@ export class EditionsService implements OnModuleInit {
         { session },
       );
       return {
-        closed: { ...this.summary(edition), finalRanking },
+        closed: { ...this.summary(edition), finalRanking, awards },
         opened: this.summary(next),
       };
     });

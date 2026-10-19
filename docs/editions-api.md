@@ -15,6 +15,10 @@ El perfil del administrador ofrece la acción con revisión de la clasificación
 
 ## Clasificaciones y estadísticas
 
+`GET /editions/:id/winners` requiere sesión y devuelve `{ edition, preview, awards }`. Las ediciones abiertas solo admiten ADMIN (404 para USER): su vista previa utiliza los snapshots de eventos cerrados y no guarda premios ni ejecuta el sorteo definitivo. En el empate final de la vista previa se muestra el primer candidato; el sorteo se realiza al cerrar. Las ediciones cerradas admiten cualquier usuario autenticado y devuelven los premios definitivos con `preview: false`. `awards` contiene `gold`, `silver`, `bronze` y `goldenUnderpants`, con listas de premiados y sus puntos. Los premios se guardan junto con `finalRanking` en la transacción de cierre. Las ediciones cerradas anteriormente los derivan de su clasificación guardada. Nombres y avatares se resuelven desde el perfil actual.
+
+Oro, plata y bronce corresponden a las posiciones 1, 2 y 3; sus empates comparten premio y las posiciones omitidas quedan desiertas. Calzón de Oro se asigna a un único participante: menos puntos, después menos votos recibidos (cada asignación de 5, 3 o 1 cuenta como un voto), después más eventos participados y, si persiste el empate, selección al azar al cerrar. El resultado se guarda para evitar nuevos sorteos al consultar. Sin participantes, todos los premios quedan desiertos. La página `#/winners` muestra cuatro banners y permite elegir entre ediciones cerradas; ADMIN también puede seleccionar la edición abierta con aviso de vista previa. El header muestra Ganadores siempre a ADMIN y a USER cuando existe alguna edición cerrada.
+
 Los snapshots de eventos guardan `event.editionId`; los acumulados `editions` se agrupan por ese ID. La general histórica continúa sumando snapshots individuales. La clasificación final de una edición cerrada se conserva en su propio documento.
 
 - `GET /overview`: edición activa, sus eventos y clasificación. Una edición nueva empieza vacía, aunque haya resultados del mismo año natural en la anterior.

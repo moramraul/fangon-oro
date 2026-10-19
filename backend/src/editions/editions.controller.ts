@@ -18,4 +18,8 @@ export class EditionsController {
   close(@Param('id') id: string, @CurrentUser() user: UserDocument) {
     return this.editions.close(id, user._id);
   }
+  @Get(':id/winners')
+  winners(@Param('id') id: string, @CurrentUser() user: UserDocument) {
+    return this.editions.winners(id, user.role);
+  }
 }

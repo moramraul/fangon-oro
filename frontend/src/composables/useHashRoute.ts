@@ -7,6 +7,7 @@ type Route =
   | 'overview'
   | 'rankings'
   | 'stats'
+  | 'winners'
   | 'profile'
   | 'edit-profile'
   | 'events'
@@ -15,6 +16,7 @@ type Route =
   | 'manage-users'
   | 'vote'
 export function readRoute(hash = location.hash): Route {
+  if (hash === '#/winners') return 'winners'
   if (hash === '#/forgot-password') return 'forgot-password'
   if (hash.startsWith('#/reset-password?')) return 'reset-password'
   if (hash === '#/overview' || hash === '#/') return 'overview'

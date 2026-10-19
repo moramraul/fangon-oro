@@ -1,9 +1,15 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useAuthStore } from '../../stores/auth'
+import { closedEditions, refreshWinners } from '../../composables/useWinners'
 
 defineProps<{ authenticated: boolean }>()
 const auth = useAuthStore()
+watch(
+  () => auth.token,
+  (token) => void refreshWinners(token),
+  { immediate: true },
+)
 const menuOpen = ref(false)
 const accountMenu = ref<HTMLElement | null>(null)
 const avatarButton = ref<HTMLButtonElement | null>(null)
@@ -59,6 +65,7 @@ onUnmounted(() => {
     <nav v-if="authenticated" class="header-navigation" aria-label="Navegación principal">
       <a href="#/rankings">Clasificaciones</a>
       <a href="#/stats">Stats</a>
+      <a v-if="auth.user?.role === 'ADMIN' || closedEditions.length" href="#/winners">Ganadores</a>
       <div ref="accountMenu" class="account-menu" @focusout="closeOnFocusLeave">
         <button
           ref="avatarButton"
