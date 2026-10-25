@@ -11,6 +11,7 @@ import ProfileView from './views/ProfileView.vue'
 import UsersAdminView from './views/UsersAdminView.vue'
 import ProfileEditView from './views/ProfileEditView.vue'
 import EventCreateView from './views/EventCreateView.vue'
+import EventsAdminView from './views/EventsAdminView.vue'
 import VotingView from './views/VotingView.vue'
 import OverviewView from './views/OverviewView.vue'
 import RankingsView from './views/RankingsView.vue'
@@ -43,12 +44,16 @@ watch([route, () => auth.user, () => auth.restoring], () => {
       'past-events',
       'manage-events',
       'manage-users',
+      'admin-events',
       'vote',
     ].includes(route.value) &&
     !auth.user
   )
     location.hash = '/login'
-  else if (['manage-events', 'manage-users'].includes(route.value) && auth.user?.role !== 'ADMIN')
+  else if (
+    ['manage-events', 'manage-users', 'admin-events'].includes(route.value) &&
+    auth.user?.role !== 'ADMIN'
+  )
     location.hash = '/overview'
 })
 onMounted(() => void auth.restore())
@@ -68,6 +73,7 @@ onMounted(() => void auth.restore())
     <StatsView v-else-if="route === 'stats' && auth.user" />
     <WinnersView v-else-if="route === 'winners' && auth.user" />
     <PastEventsView v-else-if="route === 'past-events' && auth.user" />
+    <EventsAdminView v-else-if="route === 'admin-events' && auth.user?.role === 'ADMIN'" />
     <EventCreateView v-else-if="route === 'manage-events' && auth.user?.role === 'ADMIN'" />
     <UsersAdminView v-else-if="route === 'manage-users' && auth.user?.role === 'ADMIN'" />
     <VotingView v-else-if="route === 'vote' && auth.user" />

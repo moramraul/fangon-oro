@@ -15,6 +15,7 @@ type Route =
   | 'past-events'
   | 'manage-events'
   | 'manage-users'
+  | 'admin-events'
   | 'vote'
 export function readRoute(hash = location.hash): Route {
   if (hash === '#/winners') return 'winners'
@@ -28,7 +29,8 @@ export function readRoute(hash = location.hash): Route {
   if (hash === '#/profile/edit') return 'edit-profile'
   if (hash === '#/events') return 'events'
   if (hash === '#/events/past') return 'past-events'
-  if (hash === '#/events/manage') return 'manage-events'
+  if (hash === '#/events/manage' || /^#\/events\/manage\/[^/]+$/.test(hash)) return 'manage-events'
+  if (hash === '#/admin/events') return 'admin-events'
   if (hash === '#/admin/users') return 'manage-users'
   if (hash === '#/register') return 'register'
   if (hash === '#/profile') return 'profile'

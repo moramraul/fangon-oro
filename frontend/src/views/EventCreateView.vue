@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { ApiError, request } from '../api'
 import { useAuthStore } from '../stores/auth'
 import EventDateSelect from '../components/events/EventDateSelect.vue'
-import EventCover from '../components/events/EventCover.vue'
 const formHeading = ref<HTMLElement | null>(null)
 
 interface Participant {
@@ -20,22 +19,20 @@ interface AdminEvent {
   status: string
   participants: Participant[]
 }
-const events = ref<AdminEvent[]>([])
 const editing = ref<AdminEvent | null>(null)
+const editRequested = ref(false)
 const canChangeParticipants = computed(
   () =>
     !editing.value ||
     (editing.value.status === 'open' && Date.parse(editing.value.startDate) > Date.now()),
 )
 const eventLoading = ref(false)
-const listError = ref('')
 const auth = useAuthStore()
 const users = ref<Participant[]>([])
 const participantIds = ref<string[]>([])
 const selectedUser = ref('')
 const name = ref('')
 const isTest = ref(false)
-const deleting = ref('')
 const image = ref('')
 const processing = ref(false)
 const initialStart = new Date()
@@ -68,17 +65,6 @@ function message(cause: unknown) {
       return 'Revisa el nombre, la imagen, las fechas y los participantes. Algún usuario podría haber dejado de estar disponible.'
   }
   return cause instanceof Error ? cause.message : 'No hemos podido completar la operación.'
-}
-async function loadEvents() {
-  eventLoading.value = true
-  listError.value = ''
-  try {
-    events.value = await request<AdminEvent[]>('/admin/events', {}, auth.token ?? undefined)
-  } catch (cause) {
-    listError.value = message(cause)
-  } finally {
-    eventLoading.value = false
-  }
 }
 async function editEvent(id: string) {
   if (busy.value || processing.value || eventLoading.value) return
@@ -245,56 +231,20 @@ async function submit() {
           )
         } catch (cause) {
           error.value = `Los datos del evento se han guardado, pero no los participantes. ${message(cause)}`
-          await loadEvents()
           return
         }
       }
     }
     createdName.value = result.name
-    await loadEvents()
   } catch (cause) {
     error.value = message(cause)
   } finally {
     busy.value = false
   }
 }
-async function deleteTestEvent(event: AdminEvent) {
-  if (busy.value || !event.isTest) return
-  busy.value = true
-  listError.value = ''
-  try {
-    await request(`/events/${event.id}`, { method: 'DELETE' }, auth.token ?? undefined)
-    if (editing.value?.id === event.id) reset()
-    deleting.value = ''
-    await loadEvents()
-  } catch (cause) {
-    listError.value = message(cause)
-  } finally {
-    busy.value = false
-  }
-}
-async function closeTestEvent(event: AdminEvent) {
-  if (busy.value || !event.isTest) return
-  busy.value = true
-  listError.value = ''
-  try {
-    const updated = await request<AdminEvent>(
-      `/events/${event.id}/status`,
-      {
-        method: 'PATCH',
-        body: JSON.stringify({ status: 'closed' }),
-      },
-      auth.token ?? undefined,
-    )
-    if (editing.value?.id === event.id) editing.value = updated
-    await loadEvents()
-  } catch (cause) {
-    listError.value = message(cause)
-  } finally {
-    busy.value = false
-  }
-}
 function reset() {
+  editRequested.value = false
+  history.replaceState(null, '', '#/events/manage')
   editing.value = null
   startDate.value = initialStart.toISOString()
   endDate.value = new Date(initialStart.getTime() + 86400000).toISOString()
@@ -307,107 +257,42 @@ function reset() {
   error.value = ''
   void loadUsers()
 }
+async function loadFromRoute() {
+  if (!/^#\/events\/manage(?:\/[^/]+)?$/.test(location.hash)) return
+  const id = location.hash.match(/^#\/events\/manage\/([^/]+)$/)?.[1]
+  if (id) {
+    editRequested.value = true
+    editing.value = null
+    createdName.value = ''
+    await loadUsers()
+    await editEvent(id)
+  } else reset()
+}
 onMounted(() => {
-  void loadUsers()
-  void loadEvents()
+  void loadFromRoute()
+  window.addEventListener('hashchange', loadFromRoute)
 })
+onUnmounted(() => window.removeEventListener('hashchange', loadFromRoute))
 </script>
 
 <template>
   <section class="event-create" aria-labelledby="event-title">
-    <a class="back-link" href="#/profile">← Volver a mi perfil</a>
+    <a class="back-link" href="#/admin/events">← Volver a eventos</a>
     <header class="event-heading">
       <span class="eyebrow">ADMINISTRACIÓN</span>
-      <h1 id="event-title">Gestionar eventos</h1>
+      <h1 id="event-title">{{ editing ? 'Modificar evento' : 'Crear evento' }}</h1>
       <p>Elige quién participa y cuándo empieza y termina el evento.</p>
     </header>
-    <section class="admin-events" aria-labelledby="admin-events-title">
-      <h2 id="admin-events-title">Eventos existentes</h2>
-      <p v-if="eventLoading" class="hint" role="status">Cargando eventos…</p>
-      <div v-else-if="listError" class="error" role="alert">
-        {{ listError }}<button class="retry" type="button" @click="loadEvents">Reintentar</button>
-      </div>
-      <p v-else-if="!events.length" class="hint">Todavía no hay eventos creados.</p>
-      <ul v-else class="admin-event-list">
-        <li v-for="event in events" :key="event.id">
-          <EventCover class="admin-event-cover" :image="event.image" />
-          <div>
-            <strong>{{ event.name }}</strong>
-            <span v-if="event.isTest" class="event-test-tag">Evento de pruebas</span>
-            <p class="hint">
-              {{
-                event.status === 'closed'
-                  ? 'Cerrado'
-                  : event.status === 'open'
-                    ? 'Abierto'
-                    : 'En preparación'
-              }}
-            </p>
-          </div>
-          <button
-            class="retry"
-            type="button"
-            :disabled="busy || processing || eventLoading"
-            :aria-label="`Editar ${event.name}`"
-            @click="editEvent(event.id)"
-          >
-            Editar
-          </button>
-          <template v-if="event.isTest">
-            <a
-              class="retry"
-              :href="
-                event.status === 'closed'
-                  ? `#/responses/events/${event.id}`
-                  : `#/events/${event.id}/vote`
-              "
-              >{{ event.status === 'closed' ? 'Ver respuestas' : 'Ver votación' }}</a
-            >
-            <button
-              v-if="event.status !== 'closed'"
-              class="retry"
-              type="button"
-              :disabled="busy"
-              @click="closeTestEvent(event)"
-            >
-              Cerrar prueba
-            </button>
-            <button
-              v-if="deleting !== event.id"
-              class="retry"
-              type="button"
-              :disabled="busy"
-              @click="deleting = event.id"
-            >
-              Borrar prueba
-            </button>
-            <div v-else>
-              <p class="hint">Se borrarán el evento, todos sus votos y respuestas.</p>
-              <button class="retry" type="button" :disabled="busy" @click="deleteTestEvent(event)">
-                Confirmar borrado
-              </button>
-              <button class="retry" type="button" :disabled="busy" @click="deleting = ''">
-                Cancelar
-              </button>
-            </div>
-          </template>
-        </li>
-      </ul>
-      <button
-        v-if="editing"
-        class="retry"
-        type="button"
-        :disabled="busy || processing || eventLoading"
-        @click="reset"
-      >
-        Crear nuevo evento
-      </button>
-    </section>
     <h2 ref="formHeading" tabindex="-1">{{ editing ? 'Editar evento' : 'Crear evento' }}</h2>
     <div v-if="createdName" class="success" role="status">
       <h2>{{ editing ? 'Evento actualizado' : 'Evento creado' }}</h2>
       <p>«{{ createdName }}» se ha guardado correctamente con sus participantes y fechas.</p>
+      <a class="back-link" href="#/admin/events">Volver al listado de eventos</a>
       <button class="primary" type="button" @click="reset">Crear otro evento</button>
+    </div>
+    <div v-else-if="editRequested && !editing" :class="error ? 'error' : 'hint'" role="status">
+      <p>{{ error || 'Cargando evento…' }}</p>
+      <button v-if="error" class="retry" type="button" @click="loadFromRoute">Reintentar</button>
     </div>
     <form v-else @submit.prevent="submit" :aria-busy="busy">
       <fieldset class="form-fields" :disabled="busy || processing || eventLoading">
