@@ -58,3 +58,13 @@ h1 {
     font-size: 26px;
   }
 }
+
+.event-test-tag {
+  display: inline-block;
+  margin: 6px 0;
+  padding: 4px 9px;
+  border: 1px solid var(--gold);
+  border-radius: 6px;
+  color: var(--gold);
+  font-size: 12px;
+}

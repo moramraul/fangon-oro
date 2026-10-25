@@ -182,4 +182,9 @@ describe('NotificationsService', () => {
   ])('rejects incomplete or invalid enabled configuration %p', (overrides) => {
     expect(() => service(overrides)).toThrow();
   });
+  it('does not send or resolve invitations for tagged test events even with SMTP enabled', async () => {
+    await service().eventIncluded({ ...event, isTest: true }, [userId]);
+    expect(users.find).not.toHaveBeenCalled();
+    expect(sendMail).not.toHaveBeenCalled();
+  });
 });

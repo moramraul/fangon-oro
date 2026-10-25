@@ -264,4 +264,35 @@ describe('EditionsService', () => {
     expect(editions.create).not.toHaveBeenCalled();
     expect(editions.updateOne).not.toHaveBeenCalled();
   });
+  it('creates a test event without modifying the edition or any snapshot', async () => {
+    editions.findOne.mockReturnValue(query(edition));
+    events.create.mockResolvedValue({ _id: eventId, isTest: true });
+    await service.createEvent({
+      name: 'Test',
+      isTest: true,
+      status: EventStatus.CLOSED,
+    });
+    expect(events.create).toHaveBeenCalledWith({
+      name: 'Test',
+      isTest: true,
+      status: EventStatus.CLOSED,
+      editionId: id,
+    });
+    expect(connection.transaction).not.toHaveBeenCalled();
+    expect(editions.findOneAndUpdate).not.toHaveBeenCalled();
+    expect(snapshots.capture).not.toHaveBeenCalled();
+  });
+  it('excludes test events from edition closure requirements and captured contributions', async () => {
+    await service.close(id.toHexString(), userId);
+    expect(events.exists).toHaveBeenCalledWith({
+      editionId: id,
+      status: EventStatus.OPEN,
+      isTest: { $ne: true },
+    });
+    expect(events.find).toHaveBeenCalledWith({
+      editionId: id,
+      status: EventStatus.CLOSED,
+      isTest: { $ne: true },
+    });
+  });
 });

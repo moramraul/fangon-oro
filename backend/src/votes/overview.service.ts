@@ -87,6 +87,7 @@ export class OverviewService {
         id: event._id.toHexString(),
         editionId: event.editionId.toHexString(),
         name: event.name,
+        isTest: event.isTest === true,
         image: event.image ?? null,
         startDate: this.start(event).toISOString(),
         endDate: event.endDate?.toISOString() ?? null,
@@ -106,6 +107,8 @@ export class OverviewService {
     if (!event || !event.editionId)
       throw new NotFoundException('Event not found');
     requireClosedEvent(event);
+    if (event.isTest)
+      throw new ConflictException('Test events do not have rankings');
     if (event.status === EventStatus.CLOSED) {
       const snapshot = await this.snapshots.forEvent(event._id.toHexString());
       if (!snapshot?.eventRanking)

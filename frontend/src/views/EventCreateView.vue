@@ -11,6 +11,7 @@ interface Participant {
   name: string
 }
 interface AdminEvent {
+  isTest: boolean
   id: string
   name: string
   image: string | null
@@ -33,6 +34,8 @@ const users = ref<Participant[]>([])
 const participantIds = ref<string[]>([])
 const selectedUser = ref('')
 const name = ref('')
+const isTest = ref(false)
+const deleting = ref('')
 const image = ref('')
 const processing = ref(false)
 const initialStart = new Date()
@@ -85,6 +88,7 @@ async function editEvent(id: string) {
     const event = await request<AdminEvent>(`/events/${id}`, {}, auth.token ?? undefined)
     editing.value = event
     name.value = event.name
+    isTest.value = event.isTest
     image.value = event.image ?? ''
     startDate.value = event.startDate ?? initialStart.toISOString()
     endDate.value = event.endDate ?? new Date(initialStart.getTime() + 86400000).toISOString()
@@ -211,6 +215,7 @@ async function submit() {
         method: editing.value ? 'PATCH' : 'POST',
         body: JSON.stringify({
           name: name.value.trim(),
+          ...(!editing.value ? { isTest: isTest.value } : {}),
           ...(image.value ? { image: image.value } : {}),
           ...(!editing.value || startDate.value !== editing.value.startDate
             ? { startDate: startDate.value }
@@ -253,11 +258,48 @@ async function submit() {
     busy.value = false
   }
 }
+async function deleteTestEvent(event: AdminEvent) {
+  if (busy.value || !event.isTest) return
+  busy.value = true
+  listError.value = ''
+  try {
+    await request(`/events/${event.id}`, { method: 'DELETE' }, auth.token ?? undefined)
+    if (editing.value?.id === event.id) reset()
+    deleting.value = ''
+    await loadEvents()
+  } catch (cause) {
+    listError.value = message(cause)
+  } finally {
+    busy.value = false
+  }
+}
+async function closeTestEvent(event: AdminEvent) {
+  if (busy.value || !event.isTest) return
+  busy.value = true
+  listError.value = ''
+  try {
+    const updated = await request<AdminEvent>(
+      `/events/${event.id}/status`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'closed' }),
+      },
+      auth.token ?? undefined,
+    )
+    if (editing.value?.id === event.id) editing.value = updated
+    await loadEvents()
+  } catch (cause) {
+    listError.value = message(cause)
+  } finally {
+    busy.value = false
+  }
+}
 function reset() {
   editing.value = null
   startDate.value = initialStart.toISOString()
   endDate.value = new Date(initialStart.getTime() + 86400000).toISOString()
   name.value = ''
+  isTest.value = false
   image.value = ''
   participantIds.value = []
   selectedUser.value = ''
@@ -291,6 +333,7 @@ onMounted(() => {
           <EventCover class="admin-event-cover" :image="event.image" />
           <div>
             <strong>{{ event.name }}</strong>
+            <span v-if="event.isTest" class="event-test-tag">Evento de pruebas</span>
             <p class="hint">
               {{
                 event.status === 'closed'
@@ -310,6 +353,38 @@ onMounted(() => {
           >
             Editar
           </button>
+          <template v-if="event.isTest">
+            <a class="retry" :href="`#/events/${event.id}/vote`">{{
+              event.status === 'closed' ? 'Ver respuestas' : 'Ver votación'
+            }}</a>
+            <button
+              v-if="event.status !== 'closed'"
+              class="retry"
+              type="button"
+              :disabled="busy"
+              @click="closeTestEvent(event)"
+            >
+              Cerrar prueba
+            </button>
+            <button
+              v-if="deleting !== event.id"
+              class="retry"
+              type="button"
+              :disabled="busy"
+              @click="deleting = event.id"
+            >
+              Borrar prueba
+            </button>
+            <div v-else>
+              <p class="hint">Se borrarán el evento, todos sus votos y respuestas.</p>
+              <button class="retry" type="button" :disabled="busy" @click="deleteTestEvent(event)">
+                Confirmar borrado
+              </button>
+              <button class="retry" type="button" :disabled="busy" @click="deleting = ''">
+                Cancelar
+              </button>
+            </div>
+          </template>
         </li>
       </ul>
       <button
@@ -340,6 +415,22 @@ onMounted(() => {
             pattern=".*\S.*"
             placeholder="Por ejemplo, Fangón de Oro 2026"
           />
+        </div>
+        <div class="field">
+          <label class="event-test-option" for="event-is-test">
+            <input
+              id="event-is-test"
+              v-model="isTest"
+              type="checkbox"
+              :disabled="Boolean(editing)"
+              aria-describedby="event-is-test-help"
+            />
+            Evento de pruebas
+          </label>
+          <p id="event-is-test-help" class="hint">
+            Se fija al crear el evento. Permite probar votos y respuestas sin generar
+            clasificaciones ni enviar invitaciones. Se puede borrar con todos sus votos.
+          </p>
         </div>
         <div class="field">
           <label for="event-image">Imagen del evento</label>

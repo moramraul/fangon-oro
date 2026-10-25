@@ -24,6 +24,7 @@ interface Overview {
     image: string | null
     id: string
     name: string
+    isTest: boolean
     status: string
     endDate: string | null
   }[]
@@ -54,8 +55,10 @@ const events = computed(() =>
     ? []
     : (overview.value?.events.filter(
         (event) =>
-          event.status === 'closed' ||
-          (!!event.endDate && Date.parse(event.endDate) <= Date.parse(overview.value!.serverTime)),
+          !event.isTest &&
+          (event.status === 'closed' ||
+            (!!event.endDate &&
+              Date.parse(event.endDate) <= Date.parse(overview.value!.serverTime))),
       ) ?? []),
 )
 

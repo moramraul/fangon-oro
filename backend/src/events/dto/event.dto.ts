@@ -2,6 +2,7 @@ import { Transform } from 'class-transformer';
 import {
   ArrayUnique,
   IsArray,
+  IsBoolean,
   IsEnum,
   IsISO8601,
   IsMongoId,
@@ -52,6 +53,10 @@ export class UpdateEventDto {
 }
 
 export class CreateEventDto {
+  @ValidateIf((_object: unknown, value: unknown) => value !== undefined)
+  @IsBoolean()
+  isTest?: boolean;
+
   @Transform(trimString)
   @IsString()
   @IsNotEmpty()

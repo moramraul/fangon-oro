@@ -9,8 +9,8 @@ import {
   OnModuleDestroy,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { InjectConnection, InjectModel } from '@nestjs/mongoose';
+import { Connection, Model, Types } from 'mongoose';
 import { UserDocument } from '../users/schemas/user.schema';
 import { UsersService } from '../users/users.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -107,6 +107,7 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
     @InjectModel(Vote.name) private readonly voteModel: Model<Vote>,
     private readonly snapshots: RankingSnapshotsService,
     private readonly editions: EditionsService,
+    @InjectConnection() private readonly connection: Connection,
   ) {}
 
   async listMine(user: UserDocument) {
@@ -151,6 +152,7 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
       dto.participantIds ?? [],
     );
     const event = await this.editions.createEvent({
+      isTest: dto.isTest ?? false,
       name: dto.name,
       image: dto.image,
       startDate,
@@ -163,7 +165,8 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
           ? EventStatus.CLOSED
           : (dto.status ?? EventStatus.OPEN),
     });
-    await this.notificationsService.eventIncluded(event, participants);
+    if (!event.isTest)
+      await this.notificationsService.eventIncluded(event, participants);
     return this.detail(event);
   }
 
@@ -218,7 +221,8 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
       )
       .exec();
     if (!event) throw new ConflictException('Event changed; retry the update');
-    if (event.status === EventStatus.CLOSED) await this.snapshots.capture(id);
+    if (event.status === EventStatus.CLOSED && !event.isTest)
+      await this.snapshots.capture(id);
     return this.detail(event);
   }
 
@@ -244,7 +248,8 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
     const added = participants.filter(
       (id) => !current.participants.some((existing) => existing.equals(id)),
     );
-    await this.notificationsService.eventIncluded(event, added);
+    if (!event.isTest)
+      await this.notificationsService.eventIncluded(event, added);
     return this.detail(event);
   }
 
@@ -260,12 +265,27 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
       )
       .exec();
     if (!event) throw new ConflictException('Event changed; retry the update');
-    if (event.status === EventStatus.CLOSED) await this.snapshots.capture(id);
+    if (event.status === EventStatus.CLOSED && !event.isTest)
+      await this.snapshots.capture(id);
     return this.detail(event);
   }
 
   async remove(id: string) {
-    await this.findEvent(id);
+    const current = await this.findEvent(id);
+    if (current.isTest) {
+      // Deletion and voting write the same event document, so concurrent
+      // ballots are either removed in this transaction or fail on retry.
+      await this.connection.transaction(async (session) => {
+        const deleted = await this.eventModel
+          .findOneAndDelete({ _id: id, isTest: true }, { session })
+          .exec();
+        if (!deleted) throw new NotFoundException('Event not found');
+        await this.voteModel
+          .deleteMany({ eventId: deleted._id }, { session })
+          .exec();
+      });
+      return;
+    }
     const event = await this.eventModel
       .findOneAndDelete({
         _id: id,
@@ -320,6 +340,7 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
           : 'draft';
     return {
       id: event._id.toHexString(),
+      isTest: event.isTest === true,
       editionId: event.editionId?.toHexString() ?? null,
       name: event.name,
       image: event.image ?? null,

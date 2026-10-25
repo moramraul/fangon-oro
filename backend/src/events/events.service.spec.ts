@@ -5,7 +5,7 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
-import { Model, Types } from 'mongoose';
+import { ClientSession, Connection, Model, Types } from 'mongoose';
 import { UserDocument } from '../users/schemas/user.schema';
 import { UsersService } from '../users/users.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -30,6 +30,7 @@ describe('EventsService permissions and state rules', () => {
   };
   const model = {
     aggregate: jest.fn(),
+    findOneAndDelete: jest.fn(),
     updateMany: jest.fn(),
     findById: jest.fn(),
     findOneAndUpdate: jest.fn(),
@@ -38,7 +39,13 @@ describe('EventsService permissions and state rules', () => {
   };
   const users = { findSummariesByIds: jest.fn() };
   const notifications = { eventIncluded: jest.fn() };
-  const votes = { distinct: jest.fn(), collection: { name: 'votes' } };
+  const votes = {
+    deleteMany: jest.fn(),
+    distinct: jest.fn(),
+    collection: { name: 'votes' },
+  };
+  const session = {} as ClientSession;
+  const connection = { transaction: jest.fn() };
   const snapshots = {
     initialize: jest.fn(),
     reconcile: jest.fn(),
@@ -48,6 +55,16 @@ describe('EventsService permissions and state rules', () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
+    connection.transaction.mockImplementation(
+      (callback: (session: ClientSession) => Promise<unknown>) =>
+        callback(session),
+    );
+    model.findOneAndDelete.mockReturnValue({
+      exec: jest.fn().mockResolvedValue(event),
+    });
+    votes.deleteMany.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({ deletedCount: 2 }),
+    });
     model.aggregate.mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
     votes.distinct.mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
     model.updateMany.mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
@@ -66,6 +83,7 @@ describe('EventsService permissions and state rules', () => {
       {
         createEvent: (data: unknown) => model.create(data) as Promise<unknown>,
       } as unknown as EditionsService,
+      connection as unknown as Connection,
     );
   });
 
@@ -346,6 +364,90 @@ describe('EventsService permissions and state rules', () => {
         user,
       ),
     ).rejects.toThrow('Database unavailable');
+    expect(notifications.eventIncluded).not.toHaveBeenCalled();
+  });
+  it('creates test events with the immutable tag and no invitations', async () => {
+    model.create.mockResolvedValue({ ...event, isTest: true });
+    const result = await service.create(
+      {
+        name: 'Test',
+        image: 'data:image/jpeg;base64,/9j/2Q==',
+        startDate: event.startDate.toISOString(),
+        endDate: event.endDate.toISOString(),
+        isTest: true,
+        participantIds: [userId.toHexString()],
+      },
+      user,
+    );
+    expect(result.isTest).toBe(true);
+    expect(model.create).toHaveBeenCalledWith(
+      expect.objectContaining({ isTest: true }),
+    );
+    expect(notifications.eventIncluded).not.toHaveBeenCalled();
+  });
+
+  it('does not snapshot a manually closed test event', async () => {
+    const closed = { ...event, isTest: true, status: EventStatus.CLOSED };
+    model.findOneAndUpdate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue(closed),
+    });
+    await service.setStatus(eventId.toHexString(), EventStatus.CLOSED);
+    expect(snapshots.capture).not.toHaveBeenCalled();
+  });
+
+  it.each([EventStatus.OPEN, EventStatus.CLOSED])(
+    'deletes %s test events and all ballots in one transaction',
+    async (status) => {
+      model.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue({ ...event, isTest: true, status }),
+      });
+      await service.remove(eventId.toHexString());
+      expect(connection.transaction).toHaveBeenCalledTimes(1);
+      expect(model.findOneAndDelete).toHaveBeenCalledWith(
+        { _id: eventId.toHexString(), isTest: true },
+        { session },
+      );
+      expect(votes.deleteMany).toHaveBeenCalledWith({ eventId }, { session });
+      expect(snapshots.capture).not.toHaveBeenCalled();
+    },
+  );
+
+  it('propagates ballot deletion failure to abort the transaction', async () => {
+    model.findById.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({ ...event, isTest: true }),
+    });
+    votes.deleteMany.mockReturnValue({
+      exec: jest.fn().mockRejectedValue(new Error('delete failed')),
+    });
+    await expect(service.remove(eventId.toHexString())).rejects.toThrow(
+      'delete failed',
+    );
+  });
+
+  it('cannot cascade-delete official events after voting starts', async () => {
+    model.findOneAndDelete.mockReturnValue({
+      exec: jest.fn().mockResolvedValue(null),
+    });
+    await expect(service.remove(eventId.toHexString())).rejects.toMatchObject({
+      status: 409,
+    });
+    expect(connection.transaction).not.toHaveBeenCalled();
+    expect(votes.deleteMany).not.toHaveBeenCalled();
+    expect(model.findOneAndDelete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: EventStatus.OPEN,
+        startDate: { $gt: expect.any(Date) as Date },
+      }),
+    );
+  });
+
+  it('does not email newly added test participants', async () => {
+    model.findOneAndUpdate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({ ...event, isTest: true }),
+    });
+    await service.setParticipants(eventId.toHexString(), [
+      userId.toHexString(),
+    ]);
     expect(notifications.eventIncluded).not.toHaveBeenCalled();
   });
 });

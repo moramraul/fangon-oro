@@ -8,6 +8,7 @@ import { escapeHtml, mailTemplate } from './mail-template';
 import { join } from 'node:path';
 
 export interface EventInvitation {
+  isTest?: boolean;
   _id: Types.ObjectId;
   name: string;
   startDate: Date;
@@ -68,7 +69,7 @@ export class NotificationsService {
     participantIds: Types.ObjectId[],
   ): Promise<void> {
     const transport = this.transport;
-    if (!transport || !participantIds.length) return;
+    if (event.isTest || !transport || !participantIds.length) return;
     // Mail failures never undo a successfully saved event or participant list.
     try {
       const recipients = await this.userModel

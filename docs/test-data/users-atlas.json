@@ -1,0 +1,59 @@
+[
+  {
+    "_id": {
+      "$oid": "6adddb3cbc7b17650b0d25a1"
+    },
+    "name": "Prueba Respuestas 1",
+    "email": "prueba.respuestas.1@example.com",
+    "passwordHash": "$2b$10$tu5HSHr6CiX5rA1ny4Kz9eEFj6fvQ9RESRzQYUevpg4rzA0kidrXe",
+    "isActive": true,
+    "role": "USER",
+    "sessionVersion": 0,
+    "passwordPromptSeen": true,
+    "createdAt": {
+      "$date": "2026-10-25T00:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-10-25T00:00:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6adddb3cbc7b17650b0d25a2"
+    },
+    "name": "Prueba Respuestas 2",
+    "email": "prueba.respuestas.2@example.com",
+    "passwordHash": "$2b$10$ST.gyoJAoejruFfX8INJTeVFCparoxVjK5DF2w3J4Spyd4NVrQiv.",
+    "isActive": true,
+    "role": "USER",
+    "sessionVersion": 0,
+    "passwordPromptSeen": true,
+    "createdAt": {
+      "$date": "2026-10-25T00:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-10-25T00:00:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6adddb3cbc7b17650b0d25a3"
+    },
+    "name": "Prueba Respuestas 3",
+    "email": "prueba.respuestas.3@example.com",
+    "passwordHash": "$2b$10$t1fAII2At9jFbcGtqs/WFeLNqD9UUnLjUVZ5sdpHNBu4bXQBsHl0W",
+    "isActive": true,
+    "role": "USER",
+    "sessionVersion": 0,
+    "passwordPromptSeen": true,
+    "createdAt": {
+      "$date": "2026-10-25T00:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-10-25T00:00:00.000Z"
+    },
+    "__v": 0
+  }
+]

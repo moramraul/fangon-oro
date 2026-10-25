@@ -14,6 +14,7 @@ interface Standing {
   rank: number
 }
 interface EditionEvent {
+  isTest: boolean
   editionId: string
   image: string | null
   id: string
@@ -212,6 +213,7 @@ onUnmounted(() => {
               <EventCover class="overview-event-cover" :image="event.image" />
               <div class="overview-event-info">
                 <h3>{{ event.name }}</h3>
+                <span v-if="event.isTest" class="event-test-tag">Evento de pruebas</span>
                 <span v-if="editionTag(event)" class="overview-event-edition">{{
                   editionTag(event)
                 }}</span>
@@ -236,8 +238,12 @@ onUnmounted(() => {
               <a
                 v-else-if="group.key === 'past'"
                 class="overview-button"
-                :href="`#/rankings/events/${encodeURIComponent(event.id)}`"
-                >Ver resultados</a
+                :href="
+                  event.isTest
+                    ? `#/events/${event.id}/vote`
+                    : `#/rankings/events/${encodeURIComponent(event.id)}`
+                "
+                >{{ event.isTest ? 'Ver respuestas' : 'Ver resultados' }}</a
               >
               <span v-else class="overview-event-label">{{
                 group.key === 'upcoming' ? 'Próximamente' : 'En curso'

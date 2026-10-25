@@ -6,6 +6,7 @@ import '../styles/overview.css'
 import '../styles/rankings.css'
 
 interface PastEvent {
+  isTest: boolean
   id: string
   editionId: string
   name: string
@@ -84,6 +85,7 @@ onMounted(() => void load())
           <li v-for="event in visibleEvents" :key="event.id" class="overview-event">
             <div class="overview-event-info">
               <h3>{{ event.name }}</h3>
+              <span v-if="event.isTest" class="event-test-tag">Evento de pruebas</span>
               <span class="overview-event-edition">{{ tag(event) }}</span>
               <p>Inicio: {{ dates.format(new Date(event.startDate)) }}</p>
               <p>
@@ -92,8 +94,14 @@ onMounted(() => void load())
               </p>
               <p>{{ event.participantCount }} participantes</p>
             </div>
-            <a class="overview-button" :href="`#/rankings/events/${encodeURIComponent(event.id)}`"
-              >Ver resultados</a
+            <a
+              class="overview-button"
+              :href="
+                event.isTest
+                  ? `#/events/${event.id}/vote`
+                  : `#/rankings/events/${encodeURIComponent(event.id)}`
+              "
+              >{{ event.isTest ? 'Ver respuestas' : 'Ver resultados' }}</a
             >
           </li>
         </ul>

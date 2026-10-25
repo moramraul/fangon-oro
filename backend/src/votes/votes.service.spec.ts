@@ -394,4 +394,38 @@ describe('VotesService', () => {
       service.responses(eventId.toHexString(), user),
     ).resolves.toEqual([]);
   });
+  it('closes on the last test ballot without a snapshot', async () => {
+    const testEvent = {
+      _id: eventId,
+      isTest: true,
+      participants: [voterId, candidateId, secondId, thirdId],
+    };
+    events.findOneAndUpdate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue(testEvent),
+    });
+    votes.countDocuments.mockReturnValue({
+      session: jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue(4) }),
+    });
+    await service.cast(eventId.toHexString(), selections, user);
+    expect(events.updateOne).toHaveBeenCalled();
+    expect(snapshots.capture).not.toHaveBeenCalled();
+  });
+  it('rejects test rankings while allowing the closed anonymous wall', async () => {
+    details.getDetail.mockResolvedValue({
+      id: eventId.toHexString(),
+      isTest: true,
+      status: EventStatus.CLOSED,
+      participants: [],
+    });
+    await expect(
+      service.results(eventId.toHexString(), user),
+    ).rejects.toMatchObject({ status: 409 });
+    expect(snapshots.forEvent).not.toHaveBeenCalled();
+    votes.aggregate.mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
+    await expect(
+      service.responses(eventId.toHexString(), user),
+    ).resolves.toEqual([]);
+  });
 });

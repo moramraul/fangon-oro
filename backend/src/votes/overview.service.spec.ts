@@ -171,4 +171,13 @@ describe('OverviewService with explicit editions', () => {
       NotFoundException,
     );
   });
+  it('does not expose test results as a partial classification', async () => {
+    events.findById.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({ ...event, isTest: true }),
+    });
+    await expect(service.results(eventId.toHexString())).rejects.toMatchObject({
+      status: 409,
+    });
+    expect(snapshots.forEvent).not.toHaveBeenCalled();
+  });
 });

@@ -92,7 +92,11 @@ export class RankingSnapshotsService {
   async reconcile() {
     const [closed, saved] = await Promise.all([
       this.events
-        .find({ status: EventStatus.CLOSED, editionId: { $exists: true } })
+        .find({
+          status: EventStatus.CLOSED,
+          editionId: { $exists: true },
+          isTest: { $ne: true },
+        })
         .sort({ endDate: 1, _id: 1 })
         .select('_id')
         .lean()
@@ -107,6 +111,15 @@ export class RankingSnapshotsService {
   }
 
   async capture(eventId: string, session?: ClientSession): Promise<void> {
+    const eventQuery = this.events.findOne({
+      _id: eventId,
+      status: EventStatus.CLOSED,
+    });
+    if (session) eventQuery.session(session);
+    const event = await eventQuery.exec();
+    // Do this before initializing or advancing the snapshot lock. Test events
+    // never create individual, edition or general rankings, even on repair.
+    if (!event || event.isTest) return;
     if (!session) {
       await this.initialize();
       await this.connection.transaction((transaction) =>
@@ -126,11 +139,7 @@ export class RankingSnapshotsService {
     if (!lock) throw new Error('Snapshot lock has not been initialized');
     if (await this.snapshots.exists({ key: eventId }).session(session).exec())
       return;
-    const event = await this.events
-      .findOne({ _id: eventId, status: EventStatus.CLOSED })
-      .session(session)
-      .exec();
-    if (!event) return;
+
     if (!event.editionId) throw new Error('Event has no edition assigned');
     const editionId = event.editionId.toHexString();
     const startDate = event.startDate ?? event.date;

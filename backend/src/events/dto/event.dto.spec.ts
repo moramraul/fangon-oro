@@ -1,5 +1,9 @@
 import { ValidationPipe } from '@nestjs/common';
-import { CreateEventDto, SetParticipantsDto } from './event.dto';
+import {
+  CreateEventDto,
+  SetParticipantsDto,
+  UpdateEventDto,
+} from './event.dto';
 
 describe('Event input validation', () => {
   const pipe = new ValidationPipe({
@@ -98,4 +102,40 @@ describe('Event input validation', () => {
       }),
     ).rejects.toThrow();
   });
+  it.each([true, false])(
+    'accepts the boolean test tag %p at creation',
+    async (isTest) => {
+      await expect(
+        validateCreate({
+          name: 'Test',
+          image: 'data:image/jpeg;base64,/9j/2Q==',
+          startDate: '2026-10-01T12:00:00Z',
+          endDate: '2026-10-02T12:00:00Z',
+          isTest,
+        }),
+      ).resolves.toMatchObject({ isTest });
+    },
+  );
+  it.each(['true', 'false', null, 1])(
+    'rejects a non-boolean test tag %p',
+    async (isTest) => {
+      await expect(
+        validateCreate({
+          name: 'Test',
+          image: 'data:image/jpeg;base64,/9j/2Q==',
+          startDate: '2026-10-01T12:00:00Z',
+          endDate: '2026-10-02T12:00:00Z',
+          isTest,
+        }),
+      ).rejects.toMatchObject({ status: 400 });
+    },
+  );
+  it.each([true, false])(
+    'rejects changing the tag through PATCH to %p',
+    async (isTest) => {
+      await expect(
+        pipe.transform({ isTest }, { type: 'body', metatype: UpdateEventDto }),
+      ).rejects.toMatchObject({ status: 400 });
+    },
+  );
 });

@@ -209,4 +209,15 @@ describe('RankingsService', () => {
     );
     expect(tied.leaderIds).toEqual(['c', 'd']);
   });
+  it('does not expose individual rankings for closed test events', async () => {
+    events.getDetail.mockResolvedValue({
+      id: 'event',
+      status: EventStatus.CLOSED,
+      isTest: true,
+    });
+    await expect(
+      service.forEvent('event', {} as UserDocument),
+    ).rejects.toMatchObject({ status: 409 });
+    expect(snapshots.forEvent).not.toHaveBeenCalled();
+  });
 });

@@ -3,10 +3,12 @@ import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { ApiError, request } from '../api'
 import { useAuthStore } from '../stores/auth'
 import EventCover from '../components/events/EventCover.vue'
+import EventResponses from '../components/events/EventResponses.vue'
 import '../styles/my-events.css'
 import '../styles/voting.css'
 
 interface EventDetail {
+  isTest: boolean
   id: string
   name: string
   image: string | null
@@ -20,6 +22,7 @@ interface Vote {
   allocations: { votedUserId: string; points: number; justification?: string }[]
 }
 const auth = useAuthStore()
+const eventTab = ref<'vote' | 'responses'>('vote')
 const event = ref<EventDetail | null>(null)
 const vote = ref<Vote | null>(null)
 const selections = ref(['', '', ''])
@@ -98,6 +101,7 @@ async function load() {
   if (!auth.token || !/^#\/events\/[^/]+\/vote$/.test(location.hash)) return
   loading.value = true
   error.value = ''
+  eventTab.value = 'vote'
   event.value = null
   vote.value = null
   reviewing.value = false
@@ -135,6 +139,8 @@ async function submit() {
       auth.token,
     )
     reviewing.value = false
+    if (event.value?.isTest)
+      event.value = await request<EventDetail>(`/events/${eventId()}`, {}, auth.token)
   } catch (cause) {
     handleError(cause)
   } finally {
@@ -163,8 +169,44 @@ onUnmounted(() => {
       <h1 id="voting-title">{{ event?.name ?? 'Votación' }}</h1>
       <p v-if="event?.description">{{ event.description }}</p>
     </header>
-    <p v-if="loading" class="events-message" role="status">Cargando la votación…</p>
-    <template v-else>
+    <p v-if="event?.isTest" class="event-test-tag">Evento de pruebas</p>
+    <button
+      v-if="event?.isTest"
+      class="vote-cancel"
+      type="button"
+      :disabled="loading || saving"
+      @click="load"
+    >
+      Actualizar evento
+    </button>
+    <nav
+      v-if="event?.status === 'closed' && event.isTest"
+      class="vote-review-actions"
+      aria-label="Vista del evento"
+    >
+      <button
+        type="button"
+        class="vote-cancel"
+        :aria-pressed="eventTab === 'vote'"
+        @click="eventTab = 'vote'"
+      >
+        Mi voto
+      </button>
+      <button
+        type="button"
+        class="vote-cancel"
+        :aria-pressed="eventTab === 'responses'"
+        @click="eventTab = 'responses'"
+      >
+        Respuestas
+      </button>
+    </nav>
+    <EventResponses
+      v-if="event?.isTest && event.status === 'closed' && eventTab === 'responses'"
+      :event-id="event.id"
+    />
+    <p v-else-if="loading" class="events-message" role="status">Cargando la votación…</p>
+    <template v-else-if="eventTab === 'vote'">
       <div v-if="error" class="events-message events-error" role="alert">
         <p>{{ error }}</p>
         <button type="button" :disabled="saving" @click="load">Actualizar votación</button>

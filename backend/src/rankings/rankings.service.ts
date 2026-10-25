@@ -1,4 +1,8 @@
-import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { EventsService } from '../events/events.service';
 import { requireClosedEvent } from '../events/require-closed-event';
 import { UserDocument } from '../users/schemas/user.schema';
@@ -16,6 +20,8 @@ export class RankingsService {
     // Check authorization before exposing the saved participant names and scores.
     const event = await this.eventsService.getDetail(eventId, user);
     requireClosedEvent(event);
+    if (event.isTest)
+      throw new ConflictException('Test events do not have rankings');
     const snapshot = await this.snapshots.forEvent(event.id);
     if (!snapshot?.eventRanking)
       throw new ServiceUnavailableException(

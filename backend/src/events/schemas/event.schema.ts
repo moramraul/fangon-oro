@@ -13,6 +13,10 @@ export type EventDocument = HydratedDocument<Event>;
 
 @Schema({ timestamps: true })
 export class Event {
+  // Fixed at creation: test events never contribute to rankings.
+  @Prop({ type: Boolean, default: false, immutable: true })
+  isTest!: boolean;
+
   @Prop({ type: MongoSchema.Types.ObjectId, ref: 'Edition', required: true })
   editionId!: Types.ObjectId;
   @Prop({ required: true, trim: true, maxlength: 100 })

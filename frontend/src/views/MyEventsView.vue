@@ -6,6 +6,7 @@ import EventCover from '../components/events/EventCover.vue'
 import '../styles/my-events.css'
 
 interface EventSummary {
+  isTest: boolean
   id: string
   name: string
   image: string | null
@@ -134,6 +135,7 @@ onUnmounted(() => clearInterval(timer))
                   {{ event.status === 'draft' ? 'En preparación' : group.label }}</span
                 >
                 <h3>{{ event.name }}</h3>
+                <span v-if="event.isTest" class="event-test-tag">Evento de pruebas</span>
                 <dl class="event-dates">
                   <div>
                     <dt>Inicio</dt>

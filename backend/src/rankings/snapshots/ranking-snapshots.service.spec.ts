@@ -308,4 +308,27 @@ describe('RankingSnapshotsService', () => {
     ).toEqual([1, 1]);
     expect(service.combine(entries).leaderIds).toEqual(['a', 'b']);
   });
+  it.each([undefined, session])(
+    'does not write any ranking or advance the lock for test events, session=%p',
+    async (transaction) => {
+      events.findOne.mockReturnValue(
+        query({ _id: id, isTest: true, status: EventStatus.CLOSED }),
+      );
+      await service.capture(id.toHexString(), transaction);
+      expect(snapshots.findOneAndUpdate).not.toHaveBeenCalled();
+      expect(snapshots.create).not.toHaveBeenCalled();
+      expect(votes.aggregate).not.toHaveBeenCalled();
+    },
+  );
+  it('excludes tests when repairing missing closed-event snapshots', async () => {
+    events.find.mockReturnValue(query([]));
+    snapshots.distinct.mockReturnValue(query([]));
+    await service.reconcile();
+    expect(events.find).toHaveBeenCalledWith({
+      status: EventStatus.CLOSED,
+      editionId: { $exists: true },
+      isTest: { $ne: true },
+    });
+    expect(snapshots.create).not.toHaveBeenCalled();
+  });
 });

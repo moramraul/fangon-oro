@@ -135,7 +135,7 @@ export class VotesService implements OnModuleInit {
             )
             .exec();
         }
-        if (totalVotes === event.participants.length)
+        if (totalVotes === event.participants.length && !event.isTest)
           await this.snapshots.capture(eventId, session);
         return this.response(vote);
       });
@@ -163,6 +163,8 @@ export class VotesService implements OnModuleInit {
   async results(eventId: string, user: UserDocument): Promise<EventResults> {
     const event = await this.eventsService.getDetail(eventId, user);
     requireClosedEvent(event);
+    if (event.isTest)
+      throw new ConflictException('Test events do not have rankings');
     if (event.status === EventStatus.CLOSED) {
       const snapshot = await this.snapshots.forEvent(event.id);
       if (!snapshot?.eventRanking)

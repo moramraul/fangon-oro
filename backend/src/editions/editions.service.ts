@@ -138,6 +138,11 @@ export class EditionsService implements OnModuleInit {
   }
 
   async createEvent(data: Omit<Partial<Event>, 'editionId'>) {
+    if (data.isTest) {
+      // No edition revision or saved result is modified for test events.
+      const edition = await this.current();
+      return this.events.create({ ...data, editionId: edition._id });
+    }
     return this.connection.transaction(async (session) => {
       // Event creation and edition closure write the same document, so a
       // concurrent creation can never slip into a finalized edition.
@@ -195,7 +200,11 @@ export class EditionsService implements OnModuleInit {
         .exec();
       if (
         await this.events
-          .exists({ editionId: edition._id, status: EventStatus.OPEN })
+          .exists({
+            editionId: edition._id,
+            status: EventStatus.OPEN,
+            isTest: { $ne: true },
+          })
           .session(session)
           .exec()
       )
@@ -203,7 +212,11 @@ export class EditionsService implements OnModuleInit {
           'Hay eventos con votaciones pendientes de cierre. Revisa sus fechas antes de cerrar la edición.',
         );
       const closed = await this.events
-        .find({ editionId: edition._id, status: EventStatus.CLOSED })
+        .find({
+          editionId: edition._id,
+          status: EventStatus.CLOSED,
+          isTest: { $ne: true },
+        })
         .session(session)
         .sort({ endDate: 1, _id: 1 })
         .exec();
