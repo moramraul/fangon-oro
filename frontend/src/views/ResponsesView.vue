@@ -3,9 +3,9 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { ApiError, request, type EditionSummary } from '../api'
 import { useAuthStore } from '../stores/auth'
 import EventResponses from '../components/events/EventResponses.vue'
+import ResponseFilter from '../components/events/ResponseFilter.vue'
 import '../styles/overview.css'
 import '../styles/rankings.css'
-
 interface ClosedEvent {
   editionId: string | null
   id: string
@@ -16,29 +16,68 @@ interface ClosedEvent {
 }
 const auth = useAuthStore()
 const events = ref<ClosedEvent[]>([])
-const eventId = ref('')
 const editions = ref<EditionSummary[]>([])
-const editionId = ref('')
+const selectedEditions = ref<string[]>([])
+const selectedEvents = ref<string[]>([])
+const recipients = ref<string[]>(['*'])
+const scores = ref<string[]>(['*'])
+const recipientNames = ref<string[]>([])
+const matches = (selection: string[], value: string) =>
+  selection.includes('*') || selection.includes(value)
 const editionEvents = computed(() =>
-  events.value.filter((event) => (event.editionId ?? '') === editionId.value),
+  events.value.filter((event) => matches(selectedEditions.value, event.editionId ?? '')),
 )
-const selectedEvent = computed(() => events.value.find((event) => event.id === eventId.value))
+const eventIds = computed(() =>
+  editionEvents.value
+    .filter((event) => matches(selectedEvents.value, event.id))
+    .map((event) => event.id),
+)
+const editionOptions = computed(() => [
+  ...editions.value.map((edition) => ({ value: edition.id, label: edition.name })),
+  ...(events.value.some((event) => !event.editionId) ? [{ value: '', label: 'Sin edición' }] : []),
+])
+const eventOptions = computed(() =>
+  editionEvents.value.map((event) => ({
+    value: event.id,
+    label: `${event.name}${event.isTest ? ' (pruebas)' : ''}`,
+  })),
+)
+const recipientOptions = computed(() =>
+  [...new Set([...recipientNames.value, ...recipients.value.filter((name) => name !== '*')])]
+    .sort((a, b) => a.localeCompare(b, 'es'))
+    .map((name) => ({ value: name, label: name })),
+)
+const scoreOptions = [5, 3, 1].map((score) => ({
+  value: String(score),
+  label: `${score} ${score === 1 ? 'punto' : 'puntos'}`,
+}))
 const loading = ref(true)
 const error = ref('')
 let revision = 0
+function resetDefaults(requestedId?: string) {
+  const requested = events.value.find((event) => event.id === requestedId)
+  const active = editions.value.find((edition) => edition.status === 'open')
+  const edition = requested?.editionId ?? active?.id ?? editions.value[0]?.id ?? ''
+  selectedEditions.value = [edition]
+  const latest = requested ?? events.value.find((event) => (event.editionId ?? '') === edition)
+  selectedEvents.value = latest ? [latest.id] : []
+  recipients.value = ['*']
+  scores.value = ['*']
+}
+function changeEditions(values: string[]) {
+  selectedEditions.value = values
+  selectedEvents.value = ['*']
+  history.replaceState(null, '', '#/responses')
+}
 async function load() {
   const current = ++revision
   loading.value = true
   error.value = ''
-  events.value = []
-  eventId.value = ''
   if (!auth.token) {
     loading.value = false
     return
   }
   try {
-    // Both list endpoints apply the existing event closure reconciliation.
-    // USER sees their events; ADMIN can inspect all events they manage.
     const [data, editionData] = await Promise.all([
       request<ClosedEvent[]>(
         auth.user?.role === 'ADMIN' ? '/admin/events' : '/events',
@@ -60,14 +99,7 @@ async function load() {
         'Las respuestas solo están disponibles para eventos cerrados a los que tienes acceso.'
       return
     }
-    const initial =
-      events.value.find((event) => event.id === requestedId) ??
-      events.value.find(
-        (event) => event.editionId === editionData.find((edition) => edition.status === 'open')?.id,
-      ) ??
-      events.value[0]
-    eventId.value = initial?.id ?? ''
-    editionId.value = initial?.editionId ?? ''
+    resetDefaults(requestedId)
   } catch (cause) {
     if (current !== revision) return
     if (cause instanceof ApiError && cause.status === 401) auth.logout()
@@ -76,32 +108,13 @@ async function load() {
     if (current === revision) loading.value = false
   }
 }
-function selectEdition(event: Event) {
-  editionId.value = (event.target as HTMLSelectElement).value
-  const first = editionEvents.value[0]
-  eventId.value = first?.id ?? ''
-  if (first) selectEvent(first.id)
-  else history.replaceState(null, '', '#/responses')
-}
-function selectEvent(id: string) {
-  location.hash = `/responses/events/${encodeURIComponent(id)}`
-}
-function onHashChange() {
-  const id = location.hash.match(/^#\/responses\/events\/([^/]+)$/)?.[1]
-  if (!loading.value && !error.value && id && events.value.some((event) => event.id === id)) {
-    eventId.value = id
-    editionId.value = events.value.find((event) => event.id === id)?.editionId ?? ''
-    return
-  }
-  void load()
-}
 onMounted(() => {
   void load()
-  window.addEventListener('hashchange', onHashChange)
+  window.addEventListener('hashchange', load)
 })
 onUnmounted(() => {
   revision++
-  window.removeEventListener('hashchange', onHashChange)
+  window.removeEventListener('hashchange', load)
 })
 </script>
 
@@ -119,39 +132,27 @@ onUnmounted(() => {
       <button class="overview-button" type="button" @click="load">Volver a intentar</button>
       <a class="overview-button" href="#/responses">Ver eventos disponibles</a>
     </div>
-    <p v-else-if="!events.length" class="overview-message">
-      Todavía no hay eventos cerrados disponibles para consultar respuestas.
-    </p>
-    <section v-else class="overview-panel" aria-label="Respuestas por evento">
+    <section v-else class="overview-panel" aria-label="Filtrar respuestas">
       <div class="responses-filters">
-        <label for="responses-edition"
-          >Edición
-          <select id="responses-edition" :value="editionId" @change="selectEdition">
-            <option v-for="edition in editions" :key="edition.id" :value="edition.id">
-              {{ edition.name }}
-            </option>
-            <option v-if="events.some((event) => !event.editionId)" value="">Sin edición</option>
-          </select>
-        </label>
-        <label for="responses-event"
-          >Evento
-          <select
-            id="responses-event"
-            :value="eventId"
-            :disabled="!editionEvents.length"
-            @change="selectEvent(($event.target as HTMLSelectElement).value)"
-          >
-            <option v-if="!editionEvents.length" value="">No hay eventos cerrados</option>
-            <option v-for="event in editionEvents" :key="event.id" :value="event.id">
-              {{ event.name }}{{ event.isTest ? ' (pruebas)' : '' }}
-            </option>
-          </select>
-        </label>
+        <ResponseFilter
+          label="Edición"
+          :model-value="selectedEditions"
+          :options="editionOptions"
+          @update:model-value="changeEditions"
+        />
+        <ResponseFilter v-model="selectedEvents" label="Evento" :options="eventOptions" />
+        <ResponseFilter v-model="recipients" label="Voto para" :options="recipientOptions" />
+        <ResponseFilter v-model="scores" label="Puntuación" :options="scoreOptions" />
       </div>
-      <p v-if="!editionEvents.length" class="overview-message">
-        No hay eventos cerrados disponibles en esta edición.
-      </p>
-      <EventResponses v-if="selectedEvent" :key="selectedEvent.id" :event-id="selectedEvent.id" />
+      <button class="overview-text-button" type="button" @click="resetDefaults()">
+        Restablecer filtros
+      </button>
+      <EventResponses
+        :event-ids="eventIds"
+        :recipients="recipients"
+        :scores="scores"
+        @recipients="recipientNames = $event"
+      />
     </section>
   </section>
 </template>
@@ -160,30 +161,9 @@ onUnmounted(() => {
 .responses-filters {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-  margin-bottom: 20px;
-}
-.responses-filters label {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
-  color: var(--gold);
-  font-size: 13px;
-}
-.responses-filters select {
-  width: 100%;
-  min-width: 0;
-  min-height: 48px;
-  padding: 10px;
-  border: 1px solid #d9b66560;
-  border-radius: 8px;
-  background: #201e17;
-  color: #f2eee5;
-  font: inherit;
-}
-.responses-filters select:focus-visible {
-  outline: 2px solid var(--gold);
-  outline-offset: 3px;
+  gap: 12px;
+  margin-bottom: 16px;
+  align-items: start;
 }
 @media (max-width: 480px) {
   .responses-filters {

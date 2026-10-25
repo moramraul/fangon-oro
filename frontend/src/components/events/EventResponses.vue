@@ -1,39 +1,84 @@
 <script setup lang="ts">
-import { onUnmounted, ref, watch } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { ApiError, request } from '../../api'
 import { useAuthStore } from '../../stores/auth'
-const props = defineProps<{ eventId: string }>()
+interface ResponseEntry {
+  participantName: string
+  points: number
+  justification: string
+}
+const props = defineProps<{ eventIds: string[]; recipients: string[]; scores: string[] }>()
+const emit = defineEmits<{ recipients: [names: string[]] }>()
 const auth = useAuthStore()
-const entries = ref<{ participantName: string; points: number; justification: string }[]>([])
+const entries = ref<ResponseEntry[]>([])
+const filteredEntries = computed(() =>
+  entries.value.filter(
+    (entry) =>
+      (props.recipients.includes('*') || props.recipients.includes(entry.participantName)) &&
+      (props.scores.includes('*') || props.scores.includes(String(entry.points))),
+  ),
+)
 const loading = ref(false)
 const error = ref('')
+// Reuse closed-event responses when changing filters, bounded to this view's lifetime.
+const cache = new Map<string, ResponseEntry[]>()
 let revision = 0
+let controller: AbortController | undefined
 async function load() {
   const current = ++revision
+  controller?.abort()
+  controller = new AbortController()
+  const signal = controller.signal
   entries.value = []
+  emit('recipients', [])
   error.value = ''
   loading.value = true
   try {
-    const data = await request<typeof entries.value>(
-      `/events/${encodeURIComponent(props.eventId)}/responses`,
-      {},
-      auth.token!,
+    const queue = [...props.eventIds]
+    // Bound concurrent HTTP queries when selecting a whole edition.
+    await Promise.all(
+      Array.from({ length: Math.min(4, queue.length) }, async () => {
+        while (queue.length && current === revision) {
+          const id = queue.shift()!
+          if (!cache.has(id)) {
+            const data = await request<ResponseEntry[]>(
+              `/events/${encodeURIComponent(id)}/responses`,
+              { signal: AbortSignal.any([signal, AbortSignal.timeout(15000)]) },
+              auth.token!,
+            )
+            if (current !== revision) return
+            cache.set(id, data)
+          }
+        }
+      }),
     )
-    if (current === revision) entries.value = data
+    if (current !== revision) return
+    entries.value = props.eventIds
+      .flatMap((id) => cache.get(id) ?? [])
+      .sort(
+        (a, b) =>
+          a.participantName.localeCompare(b.participantName) ||
+          b.points - a.points ||
+          a.justification.localeCompare(b.justification),
+      )
+    emit('recipients', [...new Set(entries.value.map((entry) => entry.participantName))])
   } catch (cause) {
     if (current !== revision) return
+    controller.abort()
     if (cause instanceof ApiError && cause.status === 401) auth.logout()
     error.value =
       cause instanceof ApiError && cause.status === 409
         ? 'Las respuestas estarán disponibles cuando se cierre el evento.'
-        : 'No hemos podido cargar las respuestas de este evento.'
+        : 'No hemos podido cargar todas las respuestas. Vuelve a intentarlo.'
   } finally {
     if (current === revision) loading.value = false
   }
 }
-watch(() => props.eventId, load, { immediate: true })
+watch(() => props.eventIds, load, { immediate: true })
 onUnmounted(() => {
   revision++
+  controller?.abort()
+  cache.clear()
 })
 </script>
 
@@ -45,11 +90,16 @@ onUnmounted(() => {
       <button class="overview-button" type="button" @click="load">Volver a intentar</button>
     </div>
     <template v-else>
-      <p v-if="!entries.length" class="overview-message">Todavía no hay respuestas.</p>
+      <p v-if="!filteredEntries.length" class="overview-message">
+        No hay respuestas para los filtros seleccionados.
+      </p>
       <ul v-else class="event-responses">
-        <li v-for="(entry, index) in entries" :key="index">
+        <li v-for="(entry, index) in filteredEntries" :key="index">
           <p>{{ entry.justification }}</p>
-          <small class="response-recipient">(Voto para {{ entry.participantName }})</small>
+          <small class="response-recipient"
+            >(Voto para {{ entry.participantName }} · {{ entry.points }}
+            {{ entry.points === 1 ? 'punto' : 'puntos' }})</small
+          >
         </li>
       </ul>
     </template>
