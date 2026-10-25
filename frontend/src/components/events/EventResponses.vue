@@ -49,6 +49,7 @@ onUnmounted(() => {
       <ul v-else class="event-responses">
         <li v-for="(entry, index) in entries" :key="index">
           <p>{{ entry.justification }}</p>
+          <small class="response-recipient">(Voto para {{ entry.participantName }})</small>
         </li>
       </ul>
     </template>
@@ -75,5 +76,12 @@ onUnmounted(() => {
   white-space: pre-wrap;
   font-size: 16px;
   line-height: 1.7;
+}
+.response-recipient {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
 }
 </style>
