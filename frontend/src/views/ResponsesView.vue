@@ -3,14 +3,12 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { ApiError, request } from '../api'
 import { useAuthStore } from '../stores/auth'
 import EventResponses from '../components/events/EventResponses.vue'
-import EventCover from '../components/events/EventCover.vue'
 import '../styles/overview.css'
 import '../styles/rankings.css'
 
 interface ClosedEvent {
   id: string
   name: string
-  image: string | null
   status: string
   isTest: boolean
   endDate: string | null
@@ -61,17 +59,24 @@ async function load() {
     if (current === revision) loading.value = false
   }
 }
-function selectEvent(event: Event) {
-  const id = (event.target as HTMLSelectElement).value
+function selectEvent(id: string) {
   location.hash = `/responses/events/${encodeURIComponent(id)}`
+}
+function onHashChange() {
+  const id = location.hash.match(/^#\/responses\/events\/([^/]+)$/)?.[1]
+  if (!loading.value && !error.value && id && events.value.some((event) => event.id === id)) {
+    eventId.value = id
+    return
+  }
+  void load()
 }
 onMounted(() => {
   void load()
-  window.addEventListener('hashchange', load)
+  window.addEventListener('hashchange', onHashChange)
 })
 onUnmounted(() => {
   revision++
-  window.removeEventListener('hashchange', load)
+  window.removeEventListener('hashchange', onHashChange)
 })
 </script>
 
@@ -92,48 +97,19 @@ onUnmounted(() => {
     <p v-else-if="!events.length" class="overview-message">
       Todavía no hay eventos cerrados disponibles para consultar respuestas.
     </p>
-    <section v-else class="overview-panel" aria-labelledby="responses-event-title">
-      <label class="responses-selector" for="responses-event"
-        >Evento
-        <select id="responses-event" :value="eventId" @change="selectEvent">
-          <option v-for="event in events" :key="event.id" :value="event.id">
-            {{ event.name }}{{ event.isTest ? ' (pruebas)' : '' }}
-          </option>
-        </select>
-      </label>
-      <template v-if="selectedEvent">
-        <EventCover :image="selectedEvent.image" />
-        <h2 id="responses-event-title">{{ selectedEvent.name }}</h2>
-        <span v-if="selectedEvent.isTest" class="event-test-tag">Evento de pruebas</span>
-        <EventResponses :key="selectedEvent.id" :event-id="selectedEvent.id" />
-      </template>
+    <section v-else class="overview-panel" aria-label="Respuestas por evento">
+      <nav class="ranking-selector" aria-label="Elegir evento">
+        <button
+          v-for="event in events"
+          :key="event.id"
+          type="button"
+          :aria-pressed="eventId === event.id"
+          @click="selectEvent(event.id)"
+        >
+          {{ event.name }}{{ event.isTest ? ' (pruebas)' : '' }}
+        </button>
+      </nav>
+      <EventResponses v-if="selectedEvent" :key="selectedEvent.id" :event-id="selectedEvent.id" />
     </section>
   </section>
 </template>
-
-<style scoped>
-.responses-selector {
-  display: grid;
-  gap: 10px;
-  margin-bottom: 20px;
-  color: var(--gold);
-}
-select {
-  width: 100%;
-  min-width: 0;
-  min-height: 48px;
-  padding: 12px;
-  border: 1px solid #d9b66560;
-  border-radius: 8px;
-  background: #201e17;
-  color: #f2eee5;
-  font: inherit;
-}
-select:focus-visible {
-  outline: 2px solid var(--gold);
-  outline-offset: 3px;
-}
-h2 {
-  overflow-wrap: anywhere;
-}
-</style>

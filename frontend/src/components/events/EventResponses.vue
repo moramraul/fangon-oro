@@ -45,14 +45,9 @@ onUnmounted(() => {
       <button class="overview-button" type="button" @click="load">Volver a intentar</button>
     </div>
     <template v-else>
-      <p class="overview-message">Justificaciones anónimas recibidas para este evento.</p>
       <p v-if="!entries.length" class="overview-message">Todavía no hay respuestas.</p>
       <ul v-else class="event-responses">
         <li v-for="(entry, index) in entries" :key="index">
-          <h3>
-            {{ entry.participantName }}
-            <span>· {{ entry.points }} {{ entry.points === 1 ? 'punto' : 'puntos' }}</span>
-          </h3>
           <p>{{ entry.justification }}</p>
         </li>
       </ul>
@@ -62,29 +57,23 @@ onUnmounted(() => {
 
 <style scoped>
 .event-responses {
-  display: grid;
-  gap: 16px;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
 .event-responses li {
   min-width: 0;
-  padding: 18px;
-  border: 1px solid #d9b66560;
-  border-radius: 12px;
-  background: #201e17;
+  padding: 16px 0;
+  border-bottom: 1px solid #d9b66525;
   overflow-wrap: anywhere;
 }
-h3 {
-  margin: 0;
-  color: var(--gold);
-  font-size: 16px;
-}
-h3 span {
-  font-size: 14px;
+.event-responses li:last-child {
+  border-bottom: 0;
 }
 .event-responses p {
+  margin: 0;
   white-space: pre-wrap;
+  font-size: 16px;
   line-height: 1.7;
 }
 </style>
