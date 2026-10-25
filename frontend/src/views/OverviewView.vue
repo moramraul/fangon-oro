@@ -240,7 +240,7 @@ onUnmounted(() => {
                 class="overview-button"
                 :href="
                   event.isTest
-                    ? `#/events/${event.id}/vote`
+                    ? `#/responses/events/${event.id}`
                     : `#/rankings/events/${encodeURIComponent(event.id)}`
                 "
                 >{{ event.isTest ? 'Ver respuestas' : 'Ver resultados' }}</a

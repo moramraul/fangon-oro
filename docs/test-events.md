@@ -2,7 +2,7 @@
 
 En Gestionar eventos, activar **Evento de pruebas** antes de crear el evento. La marca `isTest: true` queda fijada al crearlo; no se puede convertir un evento oficial en prueba ni una prueba en oficial. Los eventos anteriores sin el campo siguen siendo oficiales.
 
-Los votos conservan las reglas habituales: participantes autorizados, reparto de 5, 3 y 1 puntos, un solo envio y cierre por plazo, administrador o participacion completa. El muro anonimo se consulta en la pagina del evento, pestana **Respuestas**, despues del cierre. Tambien se puede abrir desde administracion. No hay clasificacion individual del evento de pruebas.
+Los votos conservan las reglas habituales: participantes autorizados, reparto de 5, 3 y 1 puntos, un solo envio y cierre por plazo, administrador o participacion completa. El muro anonimo se consulta en la vista independiente **Respuestas** de la navegacion principal, seleccionando un evento cerrado. Cada evento tiene un enlace directo `#/responses/events/:id`. Tambien se puede abrir desde administracion. No hay clasificacion individual del evento de pruebas.
 
 Los eventos de pruebas:
 

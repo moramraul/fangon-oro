@@ -119,3 +119,10 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+.voting > a.vote-cancel {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 16px;
+  text-decoration: none;
+}

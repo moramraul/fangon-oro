@@ -145,3 +145,8 @@
     display: none;
   }
 }
+
+.header-navigation > a[aria-current='page'] {
+  text-decoration: underline;
+  text-underline-offset: 5px;
+}

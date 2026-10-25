@@ -2,7 +2,6 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { ApiError, request, type EditionSummary } from '../api'
 import { useAuthStore } from '../stores/auth'
-import EventResponses from '../components/events/EventResponses.vue'
 import '../styles/overview.css'
 import '../styles/rankings.css'
 
@@ -33,7 +32,6 @@ const auth = useAuthStore()
 const overview = ref<Overview | null>(null)
 const result = ref<{ name: string; image: string | null; standings: Standing[] } | null>(null)
 const eventId = ref('')
-const eventTab = ref<'ranking' | 'responses'>('ranking')
 const selectedEdition = ref<string | null>(null)
 const historical = ref(false)
 const activeEdition = computed(() =>
@@ -67,7 +65,6 @@ async function load() {
   switching.value = false
   switchError.value = ''
   eventId.value = location.hash.match(/^#\/rankings\/events\/([^/]+)$/)?.[1] ?? ''
-  eventTab.value = 'ranking'
   result.value = null
   loading.value = true
   error.value = ''
@@ -92,7 +89,6 @@ async function load() {
         standings: Standing[]
       }>(`/overview/events/${eventId.value}/results`, {}, auth.token)
       if (currentRequest !== requestId) return
-      eventTab.value = 'ranking'
       result.value = response
       if (response.editionId !== data.edition?.id) {
         const editionData = await request<Overview>(
@@ -124,7 +120,6 @@ async function selectClassification(id: string) {
   switchError.value = ''
   if (!id) {
     eventId.value = ''
-    eventTab.value = 'ranking'
     result.value = null
     switching.value = false
     return
@@ -138,7 +133,6 @@ async function selectClassification(id: string) {
       auth.token,
     )
     if (currentRequest !== requestId) return
-    eventTab.value = 'ranking'
     result.value = response
     eventId.value = id
   } catch (cause) {
@@ -165,7 +159,6 @@ async function selectHistoricalEdition(id: string) {
     overview.value = data
     selectedEdition.value = id
     eventId.value = ''
-    eventTab.value = 'ranking'
     result.value = null
   } catch (cause) {
     if (currentRequest !== requestId) return
@@ -275,28 +268,7 @@ onUnmounted(() => {
         </button>
       </nav>
       <p v-if="switchError" class="overview-error" role="alert">{{ switchError }}</p>
-      <nav
-        v-if="eventId && result && !switching"
-        class="ranking-selector"
-        aria-label="Vista del evento"
-      >
-        <button type="button" :aria-pressed="eventTab === 'ranking'" @click="eventTab = 'ranking'">
-          Clasificación
-        </button>
-        <button
-          type="button"
-          :aria-pressed="eventTab === 'responses'"
-          @click="eventTab = 'responses'"
-        >
-          Respuestas
-        </button>
-      </nav>
-      <EventResponses
-        v-if="eventId && result && !switching && eventTab === 'responses'"
-        :event-id="eventId"
-      />
       <div
-        v-else
         class="ranking-results"
         :aria-busy="switching"
         :class="{ 'ranking-results--loading': switching }"

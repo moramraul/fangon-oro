@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useAuthStore } from '../../stores/auth'
+import { useHashRoute } from '../../composables/useHashRoute'
 import { closedEditions, refreshWinners } from '../../composables/useWinners'
 
 defineProps<{ authenticated: boolean }>()
 const auth = useAuthStore()
+const route = useHashRoute()
 watch(
   () => auth.token,
   (token) => void refreshWinners(token),
@@ -63,7 +65,12 @@ onUnmounted(() => {
     <span class="brand-mark" aria-hidden="true">✦</span
     ><a :href="authenticated ? '#/overview' : '#/login'">FANGÓN <span>DE ORO</span></a>
     <nav v-if="authenticated" class="header-navigation" aria-label="Navegación principal">
-      <a href="#/rankings">Clasificaciones</a>
+      <a href="#/rankings" :aria-current="route === 'rankings' ? 'page' : undefined"
+        >Clasificaciones</a
+      >
+      <a href="#/responses" :aria-current="route === 'responses' ? 'page' : undefined"
+        >Respuestas</a
+      >
       <a href="#/stats">Stats</a>
       <a v-if="auth.user?.role === 'ADMIN' || closedEditions.length" href="#/winners">Ganadores</a>
       <div ref="accountMenu" class="account-menu" @focusout="closeOnFocusLeave">

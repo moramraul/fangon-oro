@@ -354,9 +354,15 @@ onMounted(() => {
             Editar
           </button>
           <template v-if="event.isTest">
-            <a class="retry" :href="`#/events/${event.id}/vote`">{{
-              event.status === 'closed' ? 'Ver respuestas' : 'Ver votación'
-            }}</a>
+            <a
+              class="retry"
+              :href="
+                event.status === 'closed'
+                  ? `#/responses/events/${event.id}`
+                  : `#/events/${event.id}/vote`
+              "
+              >{{ event.status === 'closed' ? 'Ver respuestas' : 'Ver votación' }}</a
+            >
             <button
               v-if="event.status !== 'closed'"
               class="retry"
