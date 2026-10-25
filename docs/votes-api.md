@@ -66,3 +66,12 @@ El desempate se aplica en resultados, clasificaci?n del evento y clasificaci?n g
 Los resultados de eventos cerrados se leen del snapshot, conservando participantes, nombres, puntos y posiciones aunque se eliminen usuarios o votos. Los snapshots nuevos guardan los contadores de votos y participantes; los antiguos sin contador de votos devuelven totalVotes y participationPercentage como null. Los eventos abiertos solo permiten votar o consultar el voto propio; los resultados devuelven 409 hasta el cierre.
 
 No se calculan clasificaciones temporales. Los snapshots se generan exclusivamente al cerrar un evento. Las rutas de resultados rechazan eventos abiertos con 409, incluso para ADMIN. La consulta del voto propio y el formulario de votacion mantienen su funcionamiento.
+
+
+## Justificaciones y muro de respuestas
+
+El cuerpo de `POST /events/:eventId/votes` admite `justifications?: string[]`, con exactamente tres textos en el mismo orden que `candidateIds` (5, 3 y 1 puntos). Cada texto admite hasta 500 caracteres; se pueden enviar textos vacios u omitir el campo completo. Cada justificacion se almacena en su asignacion como `justification` y se devuelve en el voto propio. No cambia la puntuacion ni permite editar votos enviados.
+
+`GET /events/:eventId/responses` requiere JWT y los mismos permisos de detalle que la clasificacion del evento (participantes o ADMIN). Reutiliza la comprobacion de cierre de las clasificaciones: un evento abierto devuelve 409 antes de consultar las respuestas, incluido el acceso directo por HTTP.
+
+Devuelve exclusivamente una lista de `{ participantName: string, points: number, justification: string }`. Omite textos vacios o compuestos solo por espacios y los votos historicos sin justificacion. No incluye IDs, datos del autor, IDs de voto ni fechas. El orden se determina por nombre del destinatario, puntos y texto, sin agrupar por voto ni conservar el orden de envio. Los nombres se obtienen del snapshot del evento cuando esta disponible.

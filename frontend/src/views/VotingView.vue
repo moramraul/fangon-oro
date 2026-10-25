@@ -17,12 +17,13 @@ interface EventDetail {
   participants: { id: string; name: string }[]
 }
 interface Vote {
-  allocations: { votedUserId: string; points: number }[]
+  allocations: { votedUserId: string; points: number; justification?: string }[]
 }
 const auth = useAuthStore()
 const event = ref<EventDetail | null>(null)
 const vote = ref<Vote | null>(null)
 const selections = ref(['', '', ''])
+const justifications = ref<Record<string, string>>({})
 const points = [5, 3, 1]
 const loading = ref(true)
 const saving = ref(false)
@@ -48,12 +49,14 @@ const canSubmit = computed(
     isOpen.value &&
     candidates.value.length >= 3 &&
     selections.value.every((id) => candidates.value.some((p) => p.id === id)) &&
-    new Set(selections.value).size === 3,
+    new Set(selections.value).size === 3 &&
+    selections.value.every((id) => (justifications.value[id] ?? '').length <= 500),
 )
 const reviewAllocations = computed(() =>
   selections.value.map((id, index) => ({
     id,
     points: points[index],
+    justification: justifications.value[id] ?? '',
     name: candidates.value.find((candidate) => candidate.id === id)?.name ?? 'Participante',
   })),
 )
@@ -99,6 +102,7 @@ async function load() {
   vote.value = null
   reviewing.value = false
   selections.value = ['', '', '']
+  justifications.value = {}
   try {
     const id = eventId()
     const [detail, existingVote] = await Promise.all([
@@ -123,7 +127,10 @@ async function submit() {
       `/events/${eventId()}/votes`,
       {
         method: 'POST',
-        body: JSON.stringify({ candidateIds: selections.value }),
+        body: JSON.stringify({
+          candidateIds: selections.value,
+          justifications: selections.value.map((id) => justifications.value[id] ?? ''),
+        }),
       },
       auth.token,
     )
@@ -173,6 +180,9 @@ onUnmounted(() => {
                 event?.participants.find((p) => p.id === allocation.votedUserId)?.name ??
                 'Participante'
               }}
+              <p v-if="allocation.justification" class="vote-justification">
+                {{ allocation.justification }}
+              </p>
             </dd>
           </div>
         </dl>
@@ -198,7 +208,12 @@ onUnmounted(() => {
         <dl class="vote-summary">
           <div v-for="allocation in reviewAllocations" :key="allocation.id">
             <dt>{{ allocation.points }} {{ allocation.points === 1 ? 'punto' : 'puntos' }}</dt>
-            <dd>{{ allocation.name }}</dd>
+            <dd>
+              {{ allocation.name }}
+              <p v-if="allocation.justification" class="vote-justification">
+                {{ allocation.justification }}
+              </p>
+            </dd>
           </div>
         </dl>
         <p>Al confirmar, tu voto quedará registrado y no podrás modificarlo.</p>
@@ -248,6 +263,22 @@ onUnmounted(() => {
                 {{ candidate.name }}
               </option>
             </select>
+            <label class="justification-label" :for="`justification-${score}`"
+              >Justifica tu respuesta (opcional)</label
+            >
+            <textarea
+              v-if="selections[index]"
+              :id="`justification-${score}`"
+              v-model="justifications[selections[index]!]"
+              maxlength="500"
+              rows="3"
+              :aria-describedby="`justification-hint-${score}`"
+            />
+            <textarea v-else :id="`justification-${score}`" disabled rows="3" maxlength="500" />
+            <small :id="`justification-hint-${score}`" class="vote-hint"
+              >{{ (justifications[selections[index] ?? ''] ?? '').length }}/500 · Se publicará de
+              forma anónima al cerrar el evento.</small
+            >
           </div>
           <p class="vote-hint">
             Revisa tu elección antes de enviarla. Una vez registrado, no podrás cambiar tu voto.

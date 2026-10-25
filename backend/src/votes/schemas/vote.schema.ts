@@ -9,6 +9,8 @@ export class VoteAllocation {
   votedUserId!: Types.ObjectId;
   @Prop({ required: true, enum: [5, 3, 1] })
   points!: number;
+  @Prop({ type: String, maxlength: 500, trim: true })
+  justification?: string;
 }
 const VoteAllocationSchema = SchemaFactory.createForClass(VoteAllocation);
 @Schema({ timestamps: { createdAt: true, updatedAt: false } })

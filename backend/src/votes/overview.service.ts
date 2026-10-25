@@ -1,3 +1,4 @@
+import { requireClosedEvent } from '../events/require-closed-event';
 import { EditionsService } from '../editions/editions.service';
 import { RankingSnapshotsService } from '../rankings/snapshots/ranking-snapshots.service';
 import {
@@ -104,6 +105,7 @@ export class OverviewService {
     const event = await this.events.findById(id).exec();
     if (!event || !event.editionId)
       throw new NotFoundException('Event not found');
+    requireClosedEvent(event);
     if (event.status === EventStatus.CLOSED) {
       const snapshot = await this.snapshots.forEvent(event._id.toHexString());
       if (!snapshot?.eventRanking)

@@ -1,10 +1,6 @@
-import {
-  ConflictException,
-  Injectable,
-  ServiceUnavailableException,
-} from '@nestjs/common';
+import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { EventsService } from '../events/events.service';
-import { EventStatus } from '../events/schemas/event.schema';
+import { requireClosedEvent } from '../events/require-closed-event';
 import { UserDocument } from '../users/schemas/user.schema';
 import { Ranking } from './models/ranking.model';
 import { RankingSnapshotsService } from './snapshots/ranking-snapshots.service';
@@ -19,10 +15,7 @@ export class RankingsService {
   async forEvent(eventId: string, user: UserDocument): Promise<Ranking> {
     // Check authorization before exposing the saved participant names and scores.
     const event = await this.eventsService.getDetail(eventId, user);
-    if (event.status !== EventStatus.CLOSED)
-      throw new ConflictException(
-        'Results are only available after the event closes',
-      );
+    requireClosedEvent(event);
     const snapshot = await this.snapshots.forEvent(event.id);
     if (!snapshot?.eventRanking)
       throw new ServiceUnavailableException(

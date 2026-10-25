@@ -290,4 +290,108 @@ describe('VotesService', () => {
     expect(result.participationPercentage).toBe(25);
     expect(votes.aggregate).not.toHaveBeenCalled();
   });
+  it('associates justifications with the selected candidates without changing points', async () => {
+    await service.cast(eventId.toHexString(), selections, user, [
+      ' Great ',
+      '',
+      'Third reason',
+    ]);
+    expect(votes.create).toHaveBeenCalledWith(
+      [
+        {
+          eventId,
+          voterId,
+          allocations: vote.allocations.map((entry, index) => ({
+            ...entry,
+            ...(index === 0
+              ? { justification: 'Great' }
+              : index === 2
+                ? { justification: 'Third reason' }
+                : {}),
+          })),
+        },
+      ],
+      { session },
+    );
+  });
+
+  it.each(['USER', 'ADMIN'])(
+    'rejects open wall access for %s before querying votes',
+    async (role) => {
+      await expect(
+        service.responses(eventId.toHexString(), {
+          ...user,
+          role,
+        } as UserDocument),
+      ).rejects.toMatchObject({ status: 409 });
+      expect(votes.aggregate).not.toHaveBeenCalled();
+    },
+  );
+
+  it('does not expose the wall to users without event access', async () => {
+    details.getDetail.mockRejectedValue(new NotFoundException());
+    await expect(
+      service.responses(eventId.toHexString(), user),
+    ).rejects.toMatchObject({ status: 404 });
+    expect(votes.aggregate).not.toHaveBeenCalled();
+  });
+
+  it('returns only recipient name, points and text in content order', async () => {
+    const detail = await details.getDetail();
+    details.getDetail.mockResolvedValue({
+      ...detail,
+      status: EventStatus.CLOSED,
+    });
+    const metadata = {
+      _id: new Types.ObjectId(),
+      voterId,
+      email: 'private@example.com',
+      createdAt: new Date(),
+    };
+    votes.aggregate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue([
+        {
+          ...metadata,
+          candidateId: thirdId,
+          points: 1,
+          justification: ' Third ',
+        },
+        { ...metadata, candidateId, points: 5, justification: ' Good ' },
+      ]),
+    });
+    const entries = await service.responses(eventId.toHexString(), user);
+    expect(entries).toEqual([
+      { participantName: 'Candidate', points: 5, justification: 'Good' },
+      { participantName: 'Third', points: 1, justification: 'Third' },
+    ]);
+    expect(votes.aggregate).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        {
+          $match: {
+            'allocations.justification': { $type: 'string', $regex: /\S/ },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            candidateId: '$allocations.votedUserId',
+            points: '$allocations.points',
+            justification: '$allocations.justification',
+          },
+        },
+      ]),
+    );
+  });
+
+  it('returns an empty wall for historical votes without justifications', async () => {
+    details.getDetail.mockResolvedValue({
+      id: eventId.toHexString(),
+      status: EventStatus.CLOSED,
+      participants: [],
+    });
+    votes.aggregate.mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
+    await expect(
+      service.responses(eventId.toHexString(), user),
+    ).resolves.toEqual([]);
+  });
 });

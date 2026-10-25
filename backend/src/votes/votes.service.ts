@@ -18,6 +18,7 @@ import {
 } from '../events/schemas/event.schema';
 import { UserDocument } from '../users/schemas/user.schema';
 import { Vote } from './schemas/vote.schema';
+import { requireClosedEvent } from '../events/require-closed-event';
 
 export interface EventResults {
   eventId: string;
@@ -46,7 +47,12 @@ export class VotesService implements OnModuleInit {
     await this.voteModel.init();
   }
 
-  async cast(eventId: string, candidateIds: string[], user: UserDocument) {
+  async cast(
+    eventId: string,
+    candidateIds: string[],
+    user: UserDocument,
+    justifications?: string[],
+  ) {
     const detail = await this.eventsService.getDetail(eventId, user);
     if (
       !detail.participants.some(
@@ -75,9 +81,23 @@ export class VotesService implements OnModuleInit {
       )
     )
       throw new BadRequestException('Candidates must participate in the event');
+    if (
+      justifications != null &&
+      (!Array.isArray(justifications) ||
+        justifications.length !== 3 ||
+        justifications.some(
+          (text) => typeof text !== 'string' || text.length > 500,
+        ))
+    )
+      throw new BadRequestException(
+        'Justifications must contain three texts of at most 500 characters',
+      );
     const allocations = ids.map((id, index) => ({
       votedUserId: id,
       points: [5, 3, 1][index],
+      ...(justifications?.[index]?.trim()
+        ? { justification: justifications[index].trim() }
+        : {}),
     }));
     try {
       return await this.connection.transaction(async (session) => {
@@ -142,6 +162,7 @@ export class VotesService implements OnModuleInit {
 
   async results(eventId: string, user: UserDocument): Promise<EventResults> {
     const event = await this.eventsService.getDetail(eventId, user);
+    requireClosedEvent(event);
     if (event.status === EventStatus.CLOSED) {
       const snapshot = await this.snapshots.forEvent(event.id);
       if (!snapshot?.eventRanking)
@@ -176,6 +197,55 @@ export class VotesService implements OnModuleInit {
     );
   }
 
+  async responses(eventId: string, user: UserDocument) {
+    const event = await this.eventsService.getDetail(eventId, user);
+    requireClosedEvent(event);
+    // Project each allocation separately, discarding all ballot/author metadata.
+    const entries = await this.voteModel
+      .aggregate<{
+        candidateId: Types.ObjectId;
+        points: number;
+        justification: string;
+      }>([
+        { $match: { eventId: new Types.ObjectId(event.id) } },
+        { $unwind: '$allocations' },
+        {
+          $match: {
+            'allocations.justification': { $type: 'string', $regex: /\S/ },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            candidateId: '$allocations.votedUserId',
+            points: '$allocations.points',
+            justification: '$allocations.justification',
+          },
+        },
+      ])
+      .exec();
+    const snapshot = await this.snapshots.forEvent(event.id);
+    const names = new Map(
+      (snapshot?.eventRanking?.entries ?? event.participants).map(
+        (participant) => [participant.id, participant.name],
+      ),
+    );
+    return entries
+      .map((entry) => ({
+        participantName:
+          names.get(entry.candidateId.toHexString()) ?? 'Participante',
+        points: entry.points,
+        justification: entry.justification.trim(),
+        // Stable content ordering must not reveal ballot grouping or insertion order.
+      }))
+      .sort(
+        (a, b) =>
+          a.participantName.localeCompare(b.participantName) ||
+          b.points - a.points ||
+          a.justification.localeCompare(b.justification),
+      );
+  }
+
   private response(vote: Vote) {
     return {
       eventId: vote.eventId.toHexString(),
@@ -185,6 +255,9 @@ export class VotesService implements OnModuleInit {
       ).map((entry) => ({
         votedUserId: entry.votedUserId.toHexString(),
         points: entry.points,
+        ...('justification' in entry && entry.justification
+          ? { justification: entry.justification }
+          : {}),
       })),
       createdAt: vote.createdAt.toISOString(),
     };

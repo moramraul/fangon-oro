@@ -29,4 +29,23 @@ describe('Vote input validation', () => {
   ])('rejects invalid ballots %p', async (body) => {
     await expect(validate(body)).rejects.toMatchObject({ status: 400 });
   });
+  it('accepts optional empty and 500-character justifications', async () => {
+    await expect(
+      validate({
+        candidateIds: ids,
+        justifications: ['', 'a'.repeat(500), '  '],
+      }),
+    ).resolves.toMatchObject({ candidateIds: ids });
+  });
+  it.each([
+    ['a'.repeat(501), '', ''],
+    ['', ''],
+    ['', '', '', ''],
+    [42, '', ''],
+    'text',
+  ])('rejects invalid justifications %p', async (justifications) => {
+    await expect(
+      validate({ candidateIds: ids, justifications }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
 });

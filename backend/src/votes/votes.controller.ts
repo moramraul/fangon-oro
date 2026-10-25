@@ -16,12 +16,25 @@ export class VotesController {
     @Body() dto: CreateVoteDto,
     @CurrentUser() user: UserDocument,
   ) {
-    return this.votesService.cast(eventId, dto.candidateIds, user);
+    return this.votesService.cast(
+      eventId,
+      dto.candidateIds,
+      user,
+      dto.justifications,
+    );
   }
 
   @Get('votes/me')
   mine(@Param('eventId') eventId: string, @CurrentUser() user: UserDocument) {
     return this.votesService.mine(eventId, user);
+  }
+
+  @Get('responses')
+  responses(
+    @Param('eventId') eventId: string,
+    @CurrentUser() user: UserDocument,
+  ) {
+    return this.votesService.responses(eventId, user);
   }
 
   @Get('results')
