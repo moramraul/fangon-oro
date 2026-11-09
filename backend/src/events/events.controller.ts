@@ -33,6 +33,11 @@ export class EventsController {
     return this.eventsService.listMine(user);
   }
 
+  @Get('closed')
+  closed() {
+    return this.eventsService.listClosed();
+  }
+
   @Get(':id')
   detail(@Param('id') id: string, @CurrentUser() user: UserDocument) {
     return this.eventsService.getDetail(id, user);

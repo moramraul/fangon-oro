@@ -30,11 +30,8 @@ export class VotesController {
   }
 
   @Get('responses')
-  responses(
-    @Param('eventId') eventId: string,
-    @CurrentUser() user: UserDocument,
-  ) {
-    return this.votesService.responses(eventId, user);
+  responses(@Param('eventId') eventId: string) {
+    return this.votesService.responses(eventId);
   }
 
   @Get('results')

@@ -39,7 +39,7 @@ describe('VotesService', () => {
     countDocuments: jest.fn(),
   };
   const events = { findOneAndUpdate: jest.fn(), updateOne: jest.fn() };
-  const details = { getDetail: jest.fn() };
+  const details = { getDetail: jest.fn(), getResponsesDetail: jest.fn() };
   const connection = { transaction: jest.fn() };
   const snapshots = { capture: jest.fn(), forEvent: jest.fn() };
   let service: VotesService;
@@ -64,6 +64,7 @@ describe('VotesService', () => {
         { id: thirdId.toHexString(), name: 'Third' },
       ],
     });
+    details.getResponsesDetail.mockImplementation(() => details.getDetail());
     connection.transaction.mockImplementation(
       (callback: (session: ClientSession) => Promise<unknown>) =>
         callback(session),
@@ -317,31 +318,29 @@ describe('VotesService', () => {
 
   it.each(['USER', 'ADMIN'])(
     'rejects open wall access for %s before querying votes',
-    async (role) => {
+    async () => {
       await expect(
-        service.responses(eventId.toHexString(), {
-          ...user,
-          role,
-        } as UserDocument),
+        service.responses(eventId.toHexString()),
       ).rejects.toMatchObject({ status: 409 });
       expect(votes.aggregate).not.toHaveBeenCalled();
     },
   );
 
-  it('does not expose the wall to users without event access', async () => {
+  it('rejects the wall for nonexistent events', async () => {
     details.getDetail.mockRejectedValue(new NotFoundException());
     await expect(
-      service.responses(eventId.toHexString(), user),
+      service.responses(eventId.toHexString()),
     ).rejects.toMatchObject({ status: 404 });
     expect(votes.aggregate).not.toHaveBeenCalled();
   });
 
-  it('returns only recipient name, points and text in content order', async () => {
+  it('allows nonparticipants and returns only recipient name, points and text in content order', async () => {
     const detail = await details.getDetail();
-    details.getDetail.mockResolvedValue({
+    details.getResponsesDetail.mockResolvedValue({
       ...detail,
       status: EventStatus.CLOSED,
     });
+    details.getDetail.mockRejectedValue(new NotFoundException());
     const metadata = {
       _id: new Types.ObjectId(),
       voterId,
@@ -359,7 +358,7 @@ describe('VotesService', () => {
         { ...metadata, candidateId, points: 5, justification: ' Good ' },
       ]),
     });
-    const entries = await service.responses(eventId.toHexString(), user);
+    const entries = await service.responses(eventId.toHexString());
     expect(entries).toEqual([
       { participantName: 'Candidate', points: 5, justification: 'Good' },
       { participantName: 'Third', points: 1, justification: 'Third' },
@@ -390,9 +389,7 @@ describe('VotesService', () => {
       participants: [],
     });
     votes.aggregate.mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
-    await expect(
-      service.responses(eventId.toHexString(), user),
-    ).resolves.toEqual([]);
+    await expect(service.responses(eventId.toHexString())).resolves.toEqual([]);
   });
   it('closes on the last test ballot without a snapshot', async () => {
     const testEvent = {
@@ -424,8 +421,6 @@ describe('VotesService', () => {
     ).rejects.toMatchObject({ status: 409 });
     expect(snapshots.forEvent).not.toHaveBeenCalled();
     votes.aggregate.mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
-    await expect(
-      service.responses(eventId.toHexString(), user),
-    ).resolves.toEqual([]);
+    await expect(service.responses(eventId.toHexString())).resolves.toEqual([]);
   });
 });

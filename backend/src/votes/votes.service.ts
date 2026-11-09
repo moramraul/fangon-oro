@@ -199,8 +199,8 @@ export class VotesService implements OnModuleInit {
     );
   }
 
-  async responses(eventId: string, user: UserDocument) {
-    const event = await this.eventsService.getDetail(eventId, user);
+  async responses(eventId: string) {
+    const event = await this.eventsService.getResponsesDetail(eventId);
     requireClosedEvent(event);
     // Project each allocation separately, discarding all ballot/author metadata.
     const entries = await this.voteModel

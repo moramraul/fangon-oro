@@ -133,6 +133,19 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
     return events.map((event) => this.summary(event));
   }
 
+  async listClosed() {
+    await this.closeExpired();
+    const events = await this.eventModel
+      .find({ status: EventStatus.CLOSED })
+      .sort({ startDate: -1 })
+      .exec();
+    return events.map((event) => this.summary(event));
+  }
+
+  async getResponsesDetail(id: string) {
+    return this.detail(await this.findEvent(id));
+  }
+
   async getDetail(id: string, user: UserDocument) {
     const event = await this.findEvent(id);
     if (

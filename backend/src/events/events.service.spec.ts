@@ -96,6 +96,28 @@ describe('EventsService permissions and state rules', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
+  it('allows response details without participation', async () => {
+    const result = await service.getResponsesDetail(eventId.toHexString());
+    expect(result.id).toBe(eventId.toHexString());
+    expect(result.participants).toEqual([
+      { id: userId.toHexString(), name: 'Davo' },
+    ]);
+  });
+
+  it('lists all closed events without a participation filter', async () => {
+    const closed = { ...event, status: EventStatus.CLOSED, participants: [] };
+    model.find.mockReturnValue({
+      sort: jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue([closed]) }),
+    });
+    const result = await service.listClosed();
+    expect(model.find).toHaveBeenCalledWith({ status: EventStatus.CLOSED });
+    expect(result).toEqual([
+      expect.objectContaining({ id: eventId.toHexString() }),
+    ]);
+  });
+
   it('allows another ADMIN to manage the detail without participation', async () => {
     const result = await service.getDetail(eventId.toHexString(), {
       _id: new Types.ObjectId(),

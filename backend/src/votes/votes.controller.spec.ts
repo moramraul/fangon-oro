@@ -15,7 +15,7 @@ describe('Responses HTTP access', () => {
   let app: INestApplication<App>;
   const id = new Types.ObjectId().toHexString();
   const candidateId = new Types.ObjectId();
-  const events = { getDetail: jest.fn() };
+  const events = { getResponsesDetail: jest.fn() };
   const votes = {
     aggregate: jest.fn(),
     init: jest.fn().mockResolvedValue(undefined),
@@ -48,7 +48,7 @@ describe('Responses HTTP access', () => {
   });
 
   it('rejects direct HTTP queries before closure without reading responses', async () => {
-    events.getDetail.mockResolvedValue({
+    events.getResponsesDetail.mockResolvedValue({
       id,
       status: 'open',
       participants: [],
@@ -60,7 +60,7 @@ describe('Responses HTTP access', () => {
   });
 
   it('serializes an explicit anonymous allowlist after closure', async () => {
-    events.getDetail.mockResolvedValue({
+    events.getResponsesDetail.mockResolvedValue({
       id,
       status: 'closed',
       participants: [{ id: candidateId.toHexString(), name: 'Ana' }],

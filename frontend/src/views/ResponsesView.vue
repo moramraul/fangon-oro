@@ -79,11 +79,7 @@ async function load() {
   }
   try {
     const [data, editionData] = await Promise.all([
-      request<ClosedEvent[]>(
-        auth.user?.role === 'ADMIN' ? '/admin/events' : '/events',
-        {},
-        auth.token,
-      ),
+      request<ClosedEvent[]>('/events/closed', {}, auth.token),
       request<EditionSummary[]>('/editions', {}, auth.token),
     ])
     if (current !== revision) return
@@ -96,7 +92,7 @@ async function load() {
     const requestedId = location.hash.match(/^#\/responses\/events\/([^/]+)$/)?.[1]
     if (requestedId && !events.value.some((event) => event.id === requestedId)) {
       error.value =
-        'Las respuestas solo están disponibles para eventos cerrados a los que tienes acceso.'
+        'Las respuestas solo están disponibles para eventos cerrados.'
       return
     }
     resetDefaults(requestedId)
