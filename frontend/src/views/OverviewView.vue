@@ -164,7 +164,7 @@ onUnmounted(() => {
           >
         </section>
         <section
-          v-if="['admin', 'published'].includes(data.publication.state)"
+          v-if="data.publication.state === 'published'"
           class="overview-panel"
           aria-labelledby="standings-title"
         >
@@ -179,10 +179,6 @@ onUnmounted(() => {
             Actualizada el {{ date(data.calculatedAt) }}
           </p>
 
-          <p v-if="data.publication.state === 'revealing'" class="overview-message">
-            La clasificación se está revelando. Consulta los puestos publicados en la lista
-            completa.
-          </p>
           <div v-if="podium.length" class="overview-podium">
             <article
               v-for="entry in podium"

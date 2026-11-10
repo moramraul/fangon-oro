@@ -36,6 +36,7 @@ watch([route, () => auth.user, () => auth.restoring], () => {
     [
       'overview',
       'rankings',
+      'admin-rankings',
       'reveal',
       'responses',
       'stats',
@@ -53,7 +54,7 @@ watch([route, () => auth.user, () => auth.restoring], () => {
   )
     location.hash = '/login'
   else if (
-    ['manage-events', 'manage-users', 'admin-events'].includes(route.value) &&
+    ['manage-events', 'manage-users', 'admin-events', 'admin-rankings'].includes(route.value) &&
     auth.user?.role !== 'ADMIN'
   )
     location.hash = '/overview'
@@ -71,7 +72,12 @@ onMounted(() => void auth.restore())
     <SessionState v-else-if="auth.restoring || auth.needsSessionRecovery" />
     <OverviewView v-else-if="(route === 'overview' || route === 'events') && auth.user" />
     <RevealView v-else-if="route === 'reveal' && auth.user" />
-    <RankingsView v-else-if="route === 'rankings' && auth.user" />
+    <RankingsView
+      v-else-if="route === 'admin-rankings' && auth.user?.role === 'ADMIN'"
+      :key="route"
+      private-view
+    />
+    <RankingsView v-else-if="route === 'rankings' && auth.user" :key="route" />
     <ResponsesView v-else-if="route === 'responses' && auth.user" />
     <StatsView v-else-if="route === 'stats' && auth.user" />
     <WinnersView v-else-if="route === 'winners' && auth.user" />

@@ -32,7 +32,22 @@ interface Overview {
     endDate: string | null
   }[]
 }
+const props = defineProps<{ privateView?: boolean }>()
 const auth = useAuthStore()
+const privateAccess = computed(() => props.privateView && auth.user?.role === 'ADMIN')
+const countdownNow = ref(Date.now())
+// 17:00 in Madrid in December (CET).
+const revealAt = Date.parse('2026-12-12T17:00:00+01:00')
+const countdown = computed(() => {
+  const seconds = Math.max(0, Math.floor((revealAt - countdownNow.value) / 1000))
+  return [
+    { label: 'Días', value: Math.floor(seconds / 86400) },
+    { label: 'Horas', value: Math.floor(seconds / 3600) % 24 },
+    { label: 'Minutos', value: Math.floor(seconds / 60) % 60 },
+    { label: 'Segundos', value: seconds % 60 },
+  ]
+})
+let countdownTimer: ReturnType<typeof setInterval> | undefined
 const overview = ref<Overview | null>(null)
 const result = ref<{ name: string; image: string | null; standings: Standing[] } | null>(null)
 const eventId = ref('')
@@ -69,6 +84,10 @@ const events = computed(() =>
 )
 
 async function load() {
+  if (!privateAccess.value) {
+    loading.value = false
+    return
+  }
   const editionRoute = location.hash.match(/^#\/rankings\/editions\/([^/]+)$/)?.[1]
   if (editionRoute) {
     selectedEdition.value = editionRoute
@@ -105,7 +124,10 @@ async function load() {
         throw cause
       })
       if (currentRequest !== requestId) return
-      if (!response) { eventId.value = ''; return }
+      if (!response) {
+        eventId.value = ''
+        return
+      }
       result.value = response
       if (response.editionId !== data.edition?.id) {
         const editionData = await request<Overview>(
@@ -203,6 +225,13 @@ function onHashChange() {
   void load()
 }
 onMounted(() => {
+  if (!privateAccess.value) {
+    loading.value = false
+    countdownTimer = setInterval(() => {
+      countdownNow.value = Date.now()
+    }, 1000)
+    return
+  }
   void load()
   refreshTimer = setInterval(() => {
     if (!eventId.value && overview.value?.publication.state === 'revealing') void load()
@@ -212,6 +241,7 @@ onMounted(() => {
 onUnmounted(() => {
   requestId++
   clearInterval(refreshTimer)
+  clearInterval(countdownTimer)
   window.removeEventListener('hashchange', onHashChange)
 })
 </script>
@@ -222,131 +252,208 @@ onUnmounted(() => {
     <header class="rankings-heading">
       <span class="overview-edition">FANGÓN DE ORO</span>
       <h1 id="rankings-title">Clasificaciones</h1>
-      <p>Consulta los puntos acumulados y los resultados de cada evento.</p>
+      <p v-if="privateAccess">Consulta los puntos acumulados y los resultados de cada evento.</p>
     </header>
-    <nav class="rankings-navigation" aria-label="Elegir vista">
-      <button
-        class="overview-button"
-        :class="{ 'overview-button--gold': !historical }"
-        :aria-pressed="!historical"
-        type="button"
-        @click="selectEdition(null)"
-      >
-        {{ activeEdition?.name ?? 'Cargando edición…' }}
-      </button>
-      <button
-        class="overview-button"
-        :class="{ 'overview-button--gold': historical }"
-        :aria-pressed="historical"
-        type="button"
-        @click="selectEdition('global')"
-      >
-        Histórica
-      </button>
-    </nav>
-    <p v-if="loading" class="overview-message" role="status">Cargando clasificación…</p>
-    <div v-else-if="error" class="overview-error" role="alert">
-      <p>{{ error }}</p>
-      <button class="overview-button" type="button" @click="load">Volver a intentar</button>
-    </div>
-    <section v-else class="overview-panel" aria-labelledby="ranking-title">
-      <header class="overview-panel-heading">
-        <h2 id="ranking-title">Clasificación</h2>
-      </header>
-      <p class="overview-ranking-edition">
-        {{ overview?.edition?.name ?? 'Todas las ediciones' }} · puntos acumulados
+    <section
+      v-if="!privateAccess"
+      class="ranking-lock overview-panel"
+      aria-label="Clasificaciones reservadas"
+    >
+      <span class="ranking-lock-trophy" aria-hidden="true">??</span>
+      <p class="ranking-lock-message">
+        Para preservar la emoción de la recta final de la lucha por el trofeo, las clasificaciones
+        no se podrán consultar hasta la revelación del ganador el 12 de Diciembre a las 17:00
       </p>
-      <nav v-if="historical" class="ranking-selector" aria-label="Elegir edición histórica">
-        <button
-          type="button"
-          :aria-pressed="selectedEdition === 'global'"
-          @click="selectHistoricalEdition('global')"
-        >
-          General
-        </button>
-        <button
-          v-for="edition in closedEditions"
-          :key="edition.id"
-          type="button"
-          :aria-pressed="selectedEdition === edition.id"
-          @click="selectHistoricalEdition(edition.id)"
-        >
-          {{ edition.name }}
-        </button>
-      </nav>
-      <nav v-else-if="unlocked" class="ranking-selector" aria-label="Elegir clasificación">
-        <button type="button" :aria-pressed="!eventId" @click="selectClassification('')">
-          General
-        </button>
-        <button
-          v-for="event in events"
-          :key="event.id"
-          type="button"
-          :aria-pressed="eventId === event.id"
-          @click="selectClassification(event.id)"
-        >
-          {{ event.name }}
-        </button>
-      </nav>
-      <p v-if="overview?.publication.state === 'hidden'" class="overview-message">
-        La clasificación general se publicará al cerrar la temporada. Se revelarán cinco puestos
-        cada 30 minutos, desde el último hasta los ganadores.
-      </p>
-      <p v-if="!eventId && overview?.publication.state === 'admin'" class="overview-message">
-        Vista de administración: clasificación completa, oculta para los participantes durante la
-        temporada.
-      </p>
-      <p v-if="overview?.publication.state === 'revealing'" class="overview-message">
-        Revelación en curso: cinco puestos cada 30 minutos, del último hasta los ganadores.
-        <span v-if="overview.publication.nextRevealAt"
-          >Próximo bloque:
-          {{
-            new Date(overview.publication.nextRevealAt).toLocaleString('es-ES', {
-              timeZone: 'Europe/Madrid',
-            })
-          }}.</span
-        >
-      </p>
-      <p v-if="switchError" class="overview-error" role="alert">{{ switchError }}</p>
+      <p class="ranking-lock-timezone">12 de diciembre de 2026 · 17:00 · Hora de Madrid</p>
       <div
-        v-if="unlocked"
-        class="ranking-results"
-        :aria-busy="switching"
-        :class="{ 'ranking-results--loading': switching }"
+        class="ranking-countdown"
+        role="timer"
+        aria-label="Tiempo restante hasta la revelación"
+        aria-live="off"
       >
-        <span v-if="switching" class="ranking-loading" role="status">Cargando clasificación…</span>
-        <Transition name="ranking-list" mode="out-in">
-          <div :key="`${selectedEdition}:${eventId}`">
-            <ol v-if="standings.length" class="overview-ranking">
-              <li v-for="entry in standings" :key="entry.id">
-                <span class="overview-ranking-place">{{ entry.rank }}</span>
-                <span class="ranking-person">
-                  <span class="ranking-avatar" aria-hidden="true">
-                    <img v-if="entry.avatar" :src="entry.avatar" alt="" loading="lazy" />
-                    <span v-else>{{ entry.name.trim().charAt(0).toUpperCase() }}</span>
-                  </span>
-                  <span class="ranking-person-name">{{ entry.name }}</span>
-                </span>
-                <strong>{{ entry.points }} <small>pts</small></strong>
-              </li>
-            </ol>
-            <p
-              v-else-if="
-                eventId ||
-                overview?.publication.state === 'published' ||
-                overview?.publication.state === 'admin'
-              "
-              class="overview-message"
-            >
-              {{
-                eventId
-                  ? 'No hay resultados para este evento.'
-                  : 'Todavía no hay clasificación. Se actualizará cuando se cierre el primer evento.'
-              }}
-            </p>
-          </div>
-        </Transition>
+        <div v-for="unit in countdown" :key="unit.label" class="ranking-countdown-unit">
+          <strong>{{ String(unit.value).padStart(2, '0') }}</strong>
+          <span>{{ unit.label }}</span>
+        </div>
       </div>
+      <p v-if="countdownNow >= revealAt" class="overview-message">
+        Ha llegado el momento de la revelación. Las clasificaciones se publicarán cuando se anuncie
+        el ganador.
+      </p>
     </section>
+    <template v-else>
+      <nav class="rankings-navigation" aria-label="Elegir vista">
+        <button
+          class="overview-button"
+          :class="{ 'overview-button--gold': !historical }"
+          :aria-pressed="!historical"
+          type="button"
+          @click="selectEdition(null)"
+        >
+          {{ activeEdition?.name ?? 'Cargando edición…' }}
+        </button>
+        <button
+          class="overview-button"
+          :class="{ 'overview-button--gold': historical }"
+          :aria-pressed="historical"
+          type="button"
+          @click="selectEdition('global')"
+        >
+          Histórica
+        </button>
+      </nav>
+      <p v-if="loading" class="overview-message" role="status">Cargando clasificación…</p>
+      <div v-else-if="error" class="overview-error" role="alert">
+        <p>{{ error }}</p>
+        <button class="overview-button" type="button" @click="load">Volver a intentar</button>
+      </div>
+      <section v-else class="overview-panel" aria-labelledby="ranking-title">
+        <header class="overview-panel-heading">
+          <h2 id="ranking-title">Clasificación</h2>
+        </header>
+        <p class="overview-ranking-edition">
+          {{ overview?.edition?.name ?? 'Todas las ediciones' }} · puntos acumulados
+        </p>
+        <nav v-if="historical" class="ranking-selector" aria-label="Elegir edición histórica">
+          <button
+            type="button"
+            :aria-pressed="selectedEdition === 'global'"
+            @click="selectHistoricalEdition('global')"
+          >
+            General
+          </button>
+          <button
+            v-for="edition in closedEditions"
+            :key="edition.id"
+            type="button"
+            :aria-pressed="selectedEdition === edition.id"
+            @click="selectHistoricalEdition(edition.id)"
+          >
+            {{ edition.name }}
+          </button>
+        </nav>
+        <nav v-else-if="unlocked" class="ranking-selector" aria-label="Elegir clasificación">
+          <button type="button" :aria-pressed="!eventId" @click="selectClassification('')">
+            General
+          </button>
+          <button
+            v-for="event in events"
+            :key="event.id"
+            type="button"
+            :aria-pressed="eventId === event.id"
+            @click="selectClassification(event.id)"
+          >
+            {{ event.name }}
+          </button>
+        </nav>
+        <p v-if="overview?.publication.state === 'hidden'" class="overview-message">
+          La clasificación general se publicará al cerrar la temporada. Se revelarán cinco puestos
+          cada 30 minutos, desde el último hasta los ganadores.
+        </p>
+        <p v-if="!eventId && overview?.publication.state === 'admin'" class="overview-message">
+          Vista de administración: clasificación completa, oculta para los participantes durante la
+          temporada.
+        </p>
+        <p v-if="overview?.publication.state === 'revealing'" class="overview-message">
+          Revelación en curso: cinco puestos cada 30 minutos, del último hasta los ganadores.
+          <span v-if="overview.publication.nextRevealAt"
+            >Próximo bloque:
+            {{
+              new Date(overview.publication.nextRevealAt).toLocaleString('es-ES', {
+                timeZone: 'Europe/Madrid',
+              })
+            }}.</span
+          >
+        </p>
+        <p v-if="switchError" class="overview-error" role="alert">{{ switchError }}</p>
+        <div
+          v-if="unlocked"
+          class="ranking-results"
+          :aria-busy="switching"
+          :class="{ 'ranking-results--loading': switching }"
+        >
+          <span v-if="switching" class="ranking-loading" role="status"
+            >Cargando clasificación…</span
+          >
+          <Transition name="ranking-list" mode="out-in">
+            <div :key="`${selectedEdition}:${eventId}`">
+              <ol v-if="standings.length" class="overview-ranking">
+                <li v-for="entry in standings" :key="entry.id">
+                  <span class="overview-ranking-place">{{ entry.rank }}</span>
+                  <span class="ranking-person">
+                    <span class="ranking-avatar" aria-hidden="true">
+                      <img v-if="entry.avatar" :src="entry.avatar" alt="" loading="lazy" />
+                      <span v-else>{{ entry.name.trim().charAt(0).toUpperCase() }}</span>
+                    </span>
+                    <span class="ranking-person-name">{{ entry.name }}</span>
+                  </span>
+                  <strong>{{ entry.points }} <small>pts</small></strong>
+                </li>
+              </ol>
+              <p
+                v-else-if="
+                  eventId ||
+                  overview?.publication.state === 'published' ||
+                  overview?.publication.state === 'admin'
+                "
+                class="overview-message"
+              >
+                {{
+                  eventId
+                    ? 'No hay resultados para este evento.'
+                    : 'Todavía no hay clasificación. Se actualizará cuando se cierre el primer evento.'
+                }}
+              </p>
+            </div>
+          </Transition>
+        </div>
+      </section>
+    </template>
   </section>
 </template>
+
+<style scoped>
+.ranking-lock {
+  padding: clamp(1.5rem, 5vw, 3rem);
+  text-align: center;
+  border: 1px solid #c7a45466;
+  background: radial-gradient(ellipse at top, #c7a45418, transparent 75%);
+}
+.ranking-lock-trophy {
+  font-size: 3rem;
+}
+.ranking-lock-message {
+  max-width: 46rem;
+  margin: 1.5rem auto;
+  font-size: clamp(1.1rem, 3vw, 1.5rem);
+  line-height: 1.7;
+}
+.ranking-lock-timezone {
+  opacity: 0.7;
+  font-size: 0.9rem;
+}
+.ranking-countdown {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(0.4rem, 2vw, 1rem);
+  max-width: 32rem;
+  margin: 2rem auto 0;
+}
+.ranking-countdown-unit {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.2rem 0.25rem;
+  border: 1px solid #c7a45444;
+  border-radius: 0.8rem;
+  background: #c7a4540a;
+}
+.ranking-countdown-unit strong {
+  color: #c7a454;
+  font-size: clamp(1.6rem, 5vw, 3rem);
+  font-variant-numeric: tabular-nums;
+}
+.ranking-countdown-unit span {
+  font-size: clamp(0.65rem, 2vw, 0.85rem);
+}
+</style>
