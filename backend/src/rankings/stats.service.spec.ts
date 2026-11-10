@@ -47,12 +47,20 @@ describe('StatsService with explicit editions', () => {
       editions as unknown as EditionsService,
     );
   });
+  it('hides cumulative statistics from participants during the season', async () => {
+    snapshots.latest.mockResolvedValue({
+      editions: { [currentId.toHexString()]: [person('a', 5, 1)] },
+    });
+    expect((await service.get()).awards).toEqual([]);
+  });
   it('has no awards for a newly opened edition despite previous snapshots', async () => {
     snapshots.latest.mockResolvedValue({
       editions: { [previousId.toHexString()]: [person('old', 9, 1, 1)] },
     });
-    expect((await service.get()).awards).toEqual([]);
-    expect((await service.get()).editionId).toBe(currentId.toHexString());
+    expect((await service.get(undefined, 'ADMIN')).awards).toEqual([]);
+    expect((await service.get(undefined, 'ADMIN')).editionId).toBe(
+      currentId.toHexString(),
+    );
   });
   it('calculates each type from fixed scores and keeps original photos', async () => {
     snapshots.latest.mockResolvedValue({
@@ -64,7 +72,7 @@ describe('StatsService with explicit editions', () => {
         ],
       },
     });
-    const stats = await service.get();
+    const stats = await service.get(undefined, 'ADMIN');
     expect(
       stats.awards.map((award) => ({
         votes: award.votes,
@@ -87,14 +95,15 @@ describe('StatsService with explicit editions', () => {
     });
     snapshots.latest.mockResolvedValue(null);
     expect(
-      (await service.get(previousId.toHexString())).awards[0].people[0].id,
+      (await service.get(previousId.toHexString(), 'ADMIN')).awards[0].people[0]
+        .id,
     ).toBe('original');
   });
   it('uses the historical snapshot for global stats', async () => {
     snapshots.latest.mockResolvedValue({
       generalRanking: Ranking.from([person('historical', 10, 2)], 10),
     });
-    const stats = await service.get('global');
+    const stats = await service.get('global', 'ADMIN');
     expect(stats.scope).toBe('global');
     expect(stats.awards[0].votes).toBe(2);
     expect(editions.current).not.toHaveBeenCalled();
@@ -110,7 +119,7 @@ describe('StatsService with explicit editions', () => {
         ],
       },
     });
-    const stats = await service.get();
+    const stats = await service.get(undefined, 'ADMIN');
     expect(stats.awards[0].people.map((entry) => entry.id)).toEqual(['a', 'b']);
     expect(stats.awards[1].people).toEqual([]);
     expect(stats.awards[3].people.map((entry) => entry.id)).toEqual(['c', 'd']);
@@ -123,7 +132,7 @@ describe('StatsService with explicit editions', () => {
     snapshots.latest.mockResolvedValue({
       editions: { [currentId.toHexString()]: entries },
     });
-    const stats = await service.get();
+    const stats = await service.get(undefined, 'ADMIN');
     expect(snapshots.withParticipation).toHaveBeenCalledWith(
       entries,
       currentId.toHexString(),
@@ -137,7 +146,7 @@ describe('StatsService with explicit editions', () => {
         [currentId.toHexString()]: [person('a', 5, 1), person('b', 3)],
       },
     });
-    const stats = await service.get();
+    const stats = await service.get(undefined, 'ADMIN');
     expect(stats.awards[2].votes).toBe(3);
     expect(stats.awards[3].people[0].id).toBe('a');
   });

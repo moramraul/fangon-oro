@@ -1,3 +1,5 @@
+import { EditionsService } from '../editions/editions.service';
+import { publication } from './publication';
 import {
   ConflictException,
   Injectable,
@@ -14,6 +16,7 @@ export class RankingsService {
   constructor(
     private readonly snapshots: RankingSnapshotsService,
     private readonly eventsService: EventsService,
+    private readonly editions: EditionsService,
   ) {}
 
   async forEvent(eventId: string, user: UserDocument): Promise<Ranking> {
@@ -22,6 +25,15 @@ export class RankingsService {
     requireClosedEvent(event);
     if (event.isTest)
       throw new ConflictException('Test events do not have rankings');
+    if (
+      user.role !== 'ADMIN' &&
+      (!event.editionId ||
+        publication(await this.editions.find(event.editionId)).state !==
+          'published')
+    )
+      throw new ConflictException(
+        'Results are available after the season winner is revealed',
+      );
     const snapshot = await this.snapshots.forEvent(event.id);
     if (!snapshot?.eventRanking)
       throw new ServiceUnavailableException(

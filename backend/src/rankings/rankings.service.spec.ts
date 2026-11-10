@@ -65,6 +65,7 @@ describe('RankingsService', () => {
     service = new RankingsService(
       snapshots as unknown as RankingSnapshotsService,
       events as unknown as EventsService,
+      {} as import('../editions/editions.service').EditionsService,
     );
   });
   it('reads the latest saved ranking with its date without recalculating votes', async () => {
@@ -85,7 +86,7 @@ describe('RankingsService', () => {
   });
   it('rejects open event rankings without reading snapshots', async () => {
     await expect(
-      service.forEvent('event', { _id: a } as UserDocument),
+      service.forEvent('event', { _id: a, role: 'ADMIN' } as UserDocument),
     ).rejects.toMatchObject({ status: 409 });
     expect(snapshots.forEvent).not.toHaveBeenCalled();
   });
@@ -93,7 +94,7 @@ describe('RankingsService', () => {
   it('preserves event access restrictions', async () => {
     events.getDetail.mockRejectedValue(new NotFoundException());
     await expect(
-      service.forEvent('event', {} as UserDocument),
+      service.forEvent('event', { role: 'ADMIN' } as UserDocument),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
@@ -109,7 +110,7 @@ describe('RankingsService', () => {
       { id: 'event', status: EventStatus.CLOSED },
     );
     snapshots.forEvent.mockResolvedValue({ eventRanking });
-    const user = { _id: a } as UserDocument;
+    const user = { _id: a, role: 'ADMIN' } as UserDocument;
     expect(await service.forEvent('event', user)).toEqual(eventRanking);
     expect(events.getDetail).toHaveBeenCalledWith('event', user);
   });
@@ -117,7 +118,7 @@ describe('RankingsService', () => {
   it('does not expose a snapshot to unauthorized users', async () => {
     events.getDetail.mockRejectedValue(new NotFoundException());
     await expect(
-      service.forEvent('event', {} as UserDocument),
+      service.forEvent('event', { role: 'ADMIN' } as UserDocument),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(snapshots.forEvent).not.toHaveBeenCalled();
   });
@@ -129,7 +130,7 @@ describe('RankingsService', () => {
     });
     snapshots.forEvent.mockResolvedValue(null);
     await expect(
-      service.forEvent('event', {} as UserDocument),
+      service.forEvent('event', { role: 'ADMIN' } as UserDocument),
     ).rejects.toMatchObject({ status: 503 });
   });
 
@@ -216,7 +217,7 @@ describe('RankingsService', () => {
       isTest: true,
     });
     await expect(
-      service.forEvent('event', {} as UserDocument),
+      service.forEvent('event', { role: 'ADMIN' } as UserDocument),
     ).rejects.toMatchObject({ status: 409 });
     expect(snapshots.forEvent).not.toHaveBeenCalled();
   });

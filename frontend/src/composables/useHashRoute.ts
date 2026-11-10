@@ -5,6 +5,7 @@ type Route =
   | 'forgot-password'
   | 'reset-password'
   | 'overview'
+  | 'reveal'
   | 'rankings'
   | 'responses'
   | 'stats'
@@ -18,6 +19,7 @@ type Route =
   | 'admin-events'
   | 'vote'
 export function readRoute(hash = location.hash): Route {
+  if (/^#\/reveal\/[^/]+$/.test(hash)) return 'reveal'
   if (hash === '#/winners') return 'winners'
   if (hash === '#/forgot-password') return 'forgot-password'
   if (hash.startsWith('#/reset-password?')) return 'reset-password'
@@ -25,6 +27,7 @@ export function readRoute(hash = location.hash): Route {
   if (hash === '#/responses' || /^#\/responses\/events\/[^/]+$/.test(hash)) return 'responses'
   if (hash === '#/stats') return 'stats'
   if (/^#\/events\/[^/]+\/vote$/.test(hash)) return 'vote'
+  if (/^#\/rankings\/editions\/[^/]+$/.test(hash)) return 'rankings'
   if (hash === '#/rankings' || /^#\/rankings\/events\/[^/]+$/.test(hash)) return 'rankings'
   if (hash === '#/profile/edit') return 'edit-profile'
   if (hash === '#/events') return 'events'

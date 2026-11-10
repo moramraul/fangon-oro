@@ -14,6 +14,7 @@ import EventCreateView from './views/EventCreateView.vue'
 import EventsAdminView from './views/EventsAdminView.vue'
 import VotingView from './views/VotingView.vue'
 import OverviewView from './views/OverviewView.vue'
+import RevealView from './views/RevealView.vue'
 import RankingsView from './views/RankingsView.vue'
 import ResponsesView from './views/ResponsesView.vue'
 import StatsView from './views/StatsView.vue'
@@ -35,6 +36,7 @@ watch([route, () => auth.user, () => auth.restoring], () => {
     [
       'overview',
       'rankings',
+      'reveal',
       'responses',
       'stats',
       'winners',
@@ -68,6 +70,7 @@ onMounted(() => void auth.restore())
     />
     <SessionState v-else-if="auth.restoring || auth.needsSessionRecovery" />
     <OverviewView v-else-if="(route === 'overview' || route === 'events') && auth.user" />
+    <RevealView v-else-if="route === 'reveal' && auth.user" />
     <RankingsView v-else-if="route === 'rankings' && auth.user" />
     <ResponsesView v-else-if="route === 'responses' && auth.user" />
     <StatsView v-else-if="route === 'stats' && auth.user" />

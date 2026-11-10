@@ -1,3 +1,4 @@
+import { publication } from '../rankings/publication';
 import {
   BadRequestException,
   ConflictException,
@@ -76,6 +77,10 @@ export class EditionsService implements OnModuleInit {
   async winners(id: string, role = 'USER') {
     const edition = await this.find(id);
     const preview = edition.status === 'open';
+    if (role !== 'ADMIN' && publication(edition).state !== 'published')
+      throw new NotFoundException(
+        'Los premios se publicarán al terminar la revelación de la clasificación',
+      );
     if ((preview && role !== 'ADMIN') || (!preview && !edition.finalRanking))
       throw new NotFoundException(
         'Los premios solo están disponibles después del cierre',

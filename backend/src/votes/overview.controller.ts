@@ -17,8 +17,16 @@ export class OverviewController {
     return this.service.overview(user, edition);
   }
 
+  @Get('reveal/:editionId')
+  reveal(
+    @CurrentUser() user: UserDocument,
+    @Param('editionId') editionId: string,
+  ) {
+    return this.service.overview(user, editionId, true);
+  }
+
   @Get('events/:id/results')
-  results(@Param('id') id: string) {
-    return this.service.results(id);
+  results(@Param('id') id: string, @CurrentUser() user: UserDocument) {
+    return this.service.results(id, user.role);
   }
 }

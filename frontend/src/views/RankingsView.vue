@@ -13,6 +13,10 @@ interface Standing {
   rank: number
 }
 interface Overview {
+  publication: {
+    state: 'hidden' | 'revealing' | 'published' | 'admin'
+    nextRevealAt: string | null
+  }
   edition: EditionSummary | null
   editions: EditionSummary[]
   scope: 'edition' | 'global'
@@ -45,6 +49,10 @@ const error = ref('')
 const switching = ref(false)
 const switchError = ref('')
 let requestId = 0
+let refreshTimer: ReturnType<typeof setInterval> | undefined
+const unlocked = computed(() =>
+  ['admin', 'published'].includes(overview.value?.publication.state ?? ''),
+)
 const standings = computed(() =>
   eventId.value ? (result.value?.standings ?? []) : (overview.value?.standings ?? []),
 )
@@ -61,6 +69,11 @@ const events = computed(() =>
 )
 
 async function load() {
+  const editionRoute = location.hash.match(/^#\/rankings\/editions\/([^/]+)$/)?.[1]
+  if (editionRoute) {
+    selectedEdition.value = editionRoute
+    historical.value = true
+  }
   const currentRequest = ++requestId
   switching.value = false
   switchError.value = ''
@@ -87,8 +100,12 @@ async function load() {
         image: string | null
         editionId: string
         standings: Standing[]
-      }>(`/overview/events/${eventId.value}/results`, {}, auth.token)
+      }>(`/overview/events/${eventId.value}/results`, {}, auth.token).catch((cause) => {
+        if (cause instanceof ApiError && cause.status === 409) return null
+        throw cause
+      })
       if (currentRequest !== requestId) return
+      if (!response) { eventId.value = ''; return }
       result.value = response
       if (response.editionId !== data.edition?.id) {
         const editionData = await request<Overview>(
@@ -187,10 +204,14 @@ function onHashChange() {
 }
 onMounted(() => {
   void load()
+  refreshTimer = setInterval(() => {
+    if (!eventId.value && overview.value?.publication.state === 'revealing') void load()
+  }, 30000)
   window.addEventListener('hashchange', onHashChange)
 })
 onUnmounted(() => {
   requestId++
+  clearInterval(refreshTimer)
   window.removeEventListener('hashchange', onHashChange)
 })
 </script>
@@ -253,7 +274,7 @@ onUnmounted(() => {
           {{ edition.name }}
         </button>
       </nav>
-      <nav v-else class="ranking-selector" aria-label="Elegir clasificación">
+      <nav v-else-if="unlocked" class="ranking-selector" aria-label="Elegir clasificación">
         <button type="button" :aria-pressed="!eventId" @click="selectClassification('')">
           General
         </button>
@@ -267,8 +288,28 @@ onUnmounted(() => {
           {{ event.name }}
         </button>
       </nav>
+      <p v-if="overview?.publication.state === 'hidden'" class="overview-message">
+        La clasificación general se publicará al cerrar la temporada. Se revelarán cinco puestos
+        cada 30 minutos, desde el último hasta los ganadores.
+      </p>
+      <p v-if="!eventId && overview?.publication.state === 'admin'" class="overview-message">
+        Vista de administración: clasificación completa, oculta para los participantes durante la
+        temporada.
+      </p>
+      <p v-if="overview?.publication.state === 'revealing'" class="overview-message">
+        Revelación en curso: cinco puestos cada 30 minutos, del último hasta los ganadores.
+        <span v-if="overview.publication.nextRevealAt"
+          >Próximo bloque:
+          {{
+            new Date(overview.publication.nextRevealAt).toLocaleString('es-ES', {
+              timeZone: 'Europe/Madrid',
+            })
+          }}.</span
+        >
+      </p>
       <p v-if="switchError" class="overview-error" role="alert">{{ switchError }}</p>
       <div
+        v-if="unlocked"
         class="ranking-results"
         :aria-busy="switching"
         :class="{ 'ranking-results--loading': switching }"
@@ -289,7 +330,14 @@ onUnmounted(() => {
                 <strong>{{ entry.points }} <small>pts</small></strong>
               </li>
             </ol>
-            <p v-else class="overview-message">
+            <p
+              v-else-if="
+                eventId ||
+                overview?.publication.state === 'published' ||
+                overview?.publication.state === 'admin'
+              "
+              class="overview-message"
+            >
               {{
                 eventId
                   ? 'No hay resultados para este evento.'

@@ -1,3 +1,4 @@
+import { publication } from '../rankings/publication';
 import { requireClosedEvent } from '../events/require-closed-event';
 import { EditionsService } from '../editions/editions.service';
 import { RankingSnapshotsService } from '../rankings/snapshots/ranking-snapshots.service';
@@ -32,7 +33,7 @@ export class OverviewService {
     return event.startDate ?? event.date;
   }
 
-  async overview(user: UserDocument, selection?: string) {
+  async overview(user: UserDocument, selection?: string, reveal = false) {
     await this.eventsService.closeExpired();
     const scope = selection === 'global' ? 'global' : 'edition';
     const edition =
@@ -62,12 +63,18 @@ export class OverviewService {
         : edition?.status === 'closed'
           ? (edition.finalRanking?.entries ?? [])
           : (snapshot?.editions?.[editionId!] ?? []);
-    const ranking = await this.snapshots.withParticipation(
-      standings,
-      editionId,
-    );
+    const release = publication(edition);
+    const admin = user.role === 'ADMIN';
+    const ranking =
+      edition?.status === 'closed' && edition.finalRanking
+        ? await this.snapshots.withProfiles(edition.finalRanking)
+        : await this.snapshots.withParticipation(standings, editionId);
     return {
       scope,
+      publication: {
+        state: admin ? 'admin' : release.state,
+        nextRevealAt: admin ? null : release.nextRevealAt,
+      },
       edition: edition ? this.editions.summary(edition) : null,
       editions: await this.editions.list(),
       year: edition?.number ?? null,
@@ -79,10 +86,20 @@ export class OverviewService {
           : scope === 'global' || (editionId && snapshot?.editions?.[editionId])
             ? (snapshot?.calculatedAt?.toISOString() ?? null)
             : null,
-      standings: ranking.entries.map((entry) => ({
-        ...entry,
-        rank: entry.position,
-      })),
+      standings: ranking.entries
+        .filter(
+          (entry) =>
+            admin ||
+            release.state === 'published' ||
+            (reveal && release.positions.includes(entry.position)),
+        )
+        .map((entry) => ({
+          id: entry.id,
+          name: entry.name,
+          avatar: entry.avatar ?? null,
+          points: entry.points,
+          rank: entry.position,
+        })),
       events: events.map((event) => ({
         id: event._id.toHexString(),
         editionId: event.editionId.toHexString(),
@@ -99,7 +116,7 @@ export class OverviewService {
     };
   }
 
-  async results(id: string) {
+  async results(id: string, role = 'USER') {
     if (!Types.ObjectId.isValid(id))
       throw new NotFoundException('Event not found');
     await this.eventsService.closeExpired();
@@ -109,6 +126,14 @@ export class OverviewService {
     requireClosedEvent(event);
     if (event.isTest)
       throw new ConflictException('Test events do not have rankings');
+    if (
+      role !== 'ADMIN' &&
+      publication(await this.editions.find(event.editionId.toHexString()))
+        .state !== 'published'
+    )
+      throw new ConflictException(
+        'Results are available after the season winner is revealed',
+      );
     if (event.status === EventStatus.CLOSED) {
       const snapshot = await this.snapshots.forEvent(event._id.toHexString());
       if (!snapshot?.eventRanking)

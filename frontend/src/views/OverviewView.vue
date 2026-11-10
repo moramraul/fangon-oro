@@ -27,6 +27,10 @@ interface EditionEvent {
   hasVoted: boolean
 }
 interface Overview {
+  publication: {
+    state: 'hidden' | 'revealing' | 'published' | 'admin'
+    nextRevealAt: string | null
+  }
   edition: EditionSummary
   editions: EditionSummary[]
   year: number
@@ -82,7 +86,7 @@ const groups = computed(() => {
   ]
 })
 const podium = computed(() => {
-  const top = data.value?.standings.slice(0, 3) ?? []
+  const top = data.value?.standings.filter((entry) => entry.rank <= 3).slice(0, 3) ?? []
   return [top[1], top[0], top[2]].filter((entry): entry is Standing => !!entry)
 })
 const dates = new Intl.DateTimeFormat('es-ES', {
@@ -150,7 +154,20 @@ onUnmounted(() => {
         <button class="overview-button" type="button" @click="load()">Volver a intentar</button>
       </div>
       <template v-if="data && !loading">
-        <section class="overview-panel" aria-labelledby="standings-title">
+        <section
+          v-for="edition in data.editions.filter((item) => item.status === 'closed')"
+          :key="edition.id"
+          class="overview-panel"
+        >
+          <a class="overview-button overview-button--gold" :href="`#/reveal/${edition.id}`"
+            >Seguir la revelacion de {{ edition.name }}</a
+          >
+        </section>
+        <section
+          v-if="['admin', 'published'].includes(data.publication.state)"
+          class="overview-panel"
+          aria-labelledby="standings-title"
+        >
           <header class="overview-panel-heading">
             <h2 id="standings-title"><span aria-hidden="true">♛</span> Clasificación general</h2>
             <a class="overview-text-button" href="#/rankings"
@@ -162,6 +179,10 @@ onUnmounted(() => {
             Actualizada el {{ date(data.calculatedAt) }}
           </p>
 
+          <p v-if="data.publication.state === 'revealing'" class="overview-message">
+            La clasificación se está revelando. Consulta los puestos publicados en la lista
+            completa.
+          </p>
           <div v-if="podium.length" class="overview-podium">
             <article
               v-for="entry in podium"
@@ -236,7 +257,10 @@ onUnmounted(() => {
                 >{{ event.hasVoted ? 'Ver tus votos' : 'Votar' }}</a
               >
               <a
-                v-else-if="group.key === 'past'"
+                v-else-if="
+                  group.key === 'past' &&
+                  (event.isTest || ['admin', 'published'].includes(data.publication.state))
+                "
                 class="overview-button"
                 :href="
                   event.isTest

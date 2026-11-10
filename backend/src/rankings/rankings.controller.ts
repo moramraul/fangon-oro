@@ -1,3 +1,5 @@
+import { Roles } from '../auth/decorators/roles.decorator';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/authenticated-user';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -18,6 +20,8 @@ export class RankingsController {
   }
 
   @Get('rankings/general')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
   general() {
     return this.rankingsService.general();
   }

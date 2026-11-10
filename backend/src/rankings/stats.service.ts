@@ -1,3 +1,4 @@
+import { publication } from './publication';
 import { EditionsService } from '../editions/editions.service';
 import { Types } from 'mongoose';
 import { BadRequestException, Injectable } from '@nestjs/common';
@@ -11,7 +12,7 @@ export class StatsService {
     private readonly editions: EditionsService,
   ) {}
 
-  async get(selection?: string) {
+  async get(selection?: string, role = 'USER') {
     if (
       selection !== undefined &&
       (typeof selection !== 'string' ||
@@ -39,7 +40,9 @@ export class StatsService {
       entries,
       editionId ?? undefined,
     );
-    const people = ranking.entries.map((entry) => {
+    const visible =
+      role === 'ADMIN' || publication(edition).state === 'published';
+    const people = (visible ? ranking.entries : []).map((entry) => {
       const ones =
         entry.points - 5 * entry.fivePointVotes - 3 * entry.threePointVotes;
       return {
