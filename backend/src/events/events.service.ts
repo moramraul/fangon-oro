@@ -139,7 +139,20 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
       .find({ status: EventStatus.CLOSED })
       .sort({ startDate: -1 })
       .exec();
-    return events.map((event) => this.summary(event));
+    const responseEventIds = new Set(
+      (
+        await this.voteModel
+          .distinct('eventId', {
+            eventId: { $in: events.map((event) => event._id) },
+            'allocations.justification': { $type: 'string', $regex: /\S/ },
+          })
+          .exec()
+      ).map((id: Types.ObjectId) => id.toHexString()),
+    );
+    return events.map((event) => ({
+      ...this.summary(event),
+      hasResponses: responseEventIds.has(event._id.toHexString()),
+    }));
   }
 
   async getResponsesDetail(id: string) {

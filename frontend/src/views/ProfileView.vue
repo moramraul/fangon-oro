@@ -21,6 +21,9 @@ const auth = useAuthStore()
       <a v-if="user.role === 'ADMIN'" class="profile-action" href="#/admin/users">Usuarios</a>
       <a class="profile-action" href="#/profile/edit">Modificar mi perfil</a>
       <a v-if="user.role === 'ADMIN'" class="profile-action" href="#/admin/events"> Eventos </a>
+      <a v-if="user.role === 'ADMIN'" class="profile-action" href="#/admin/rankings">
+        Clasificación general privada
+      </a>
     </nav>
     <PendingUsers v-if="user.role === 'ADMIN'" />
     <EditionsAdmin v-if="user.role === 'ADMIN'" />

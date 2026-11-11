@@ -61,10 +61,34 @@
 
 .ranking-selector {
   display: flex;
+  flex-wrap: wrap;
   gap: 16px;
-  overflow-x: auto;
   margin: 16px 0;
   border-bottom: 1px solid #d9b66525;
+}
+.ranking-event-filter {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 16px 0 24px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.ranking-event-filter select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid #d9b66545;
+  border-radius: 8px;
+  background: var(--bg, #121212);
+  color: #f3d68d;
+  font: inherit;
+}
+.ranking-event-filter select:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
 }
 .ranking-selector button {
   flex-shrink: 0;

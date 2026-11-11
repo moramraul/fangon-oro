@@ -3,6 +3,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ClientSession, Connection, Model, Types } from 'mongoose';
@@ -43,9 +44,11 @@ describe('VotesService', () => {
   const connection = { transaction: jest.fn() };
   const snapshots = { capture: jest.fn(), forEvent: jest.fn() };
   let service: VotesService;
+  let log: jest.SpyInstance;
 
   beforeEach(() => {
     jest.resetAllMocks();
+    log = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
     votes.countDocuments.mockReturnValue({
       exec: jest.fn().mockResolvedValue(2),
       session: jest
@@ -82,6 +85,44 @@ describe('VotesService', () => {
       connection as unknown as Connection,
       details as unknown as EventsService,
       snapshots as unknown as RankingSnapshotsService,
+    );
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it('logs saving only after the transaction commits, without ballot contents', async () => {
+    connection.transaction.mockImplementation(
+      async (callback: (session: ClientSession) => Promise<unknown>) => {
+        const result = await callback(session);
+        expect(log).toHaveBeenCalledTimes(1);
+        return result;
+      },
+    );
+    await service.cast(eventId.toHexString(), selections, user);
+    const context = {
+      eventId: eventId.toHexString(),
+      voterId: voterId.toHexString(),
+    };
+    expect(log.mock.calls).toEqual([
+      [{ message: 'Vote submission received', ...context }],
+      [{ message: 'Vote saved', ...context }],
+    ]);
+  });
+
+  it('does not log a saved vote when the transaction fails after insertion', async () => {
+    connection.transaction.mockImplementation(
+      async (callback: (session: ClientSession) => Promise<unknown>) => {
+        await callback(session);
+        throw new Error('Commit failed');
+      },
+    );
+    await expect(
+      service.cast(eventId.toHexString(), selections, user),
+    ).rejects.toThrow('Commit failed');
+    expect(votes.create).toHaveBeenCalled();
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(log).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'Vote submission received' }),
     );
   });
 

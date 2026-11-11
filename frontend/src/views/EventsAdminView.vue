@@ -137,7 +137,6 @@ onUnmounted(() => clearInterval(timer))
       <p>Consulta y gestiona los eventos del Fangón de Oro.</p>
     </header>
     <div class="toolbar">
-      <a class="create-event" href="#/admin/rankings">Ver clasificación general privada</a>
       <a class="create-event" href="#/events/manage">Crear evento</a>
       <button type="button" :disabled="busy || loading" @click="loadEvents">Actualizar</button>
     </div>

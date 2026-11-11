@@ -13,6 +13,7 @@ interface ClosedEvent {
   status: string
   isTest: boolean
   endDate: string | null
+  hasResponses: boolean
 }
 const auth = useAuthStore()
 const events = ref<ClosedEvent[]>([])
@@ -85,14 +86,14 @@ async function load() {
     if (current !== revision) return
     editions.value = editionData
     events.value = data
-      .filter((event) => event.status === 'closed')
+      .filter((event) => event.status === 'closed' && event.hasResponses)
       .sort(
         (a, b) => (b.endDate ? Date.parse(b.endDate) : 0) - (a.endDate ? Date.parse(a.endDate) : 0),
       )
     const requestedId = location.hash.match(/^#\/responses\/events\/([^/]+)$/)?.[1]
     if (requestedId && !events.value.some((event) => event.id === requestedId)) {
       error.value =
-        'Las respuestas solo están disponibles para eventos cerrados.'
+        'Este evento no tiene respuestas disponibles. Elige un evento cerrado con respuestas.'
       return
     }
     resetDefaults(requestedId)

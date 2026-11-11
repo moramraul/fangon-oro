@@ -5,6 +5,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   OnModuleInit,
   ServiceUnavailableException,
 } from '@nestjs/common';
@@ -34,6 +35,8 @@ export interface EventResults {
 
 @Injectable()
 export class VotesService implements OnModuleInit {
+  private readonly logger = new Logger(VotesService.name);
+
   constructor(
     @InjectModel(Vote.name) private readonly voteModel: Model<Vote>,
     @InjectModel(Event.name) private readonly eventModel: Model<Event>,
@@ -53,6 +56,8 @@ export class VotesService implements OnModuleInit {
     user: UserDocument,
     justifications?: string[],
   ) {
+    const logContext = { eventId, voterId: user._id.toHexString() };
+    this.logger.log({ message: 'Vote submission received', ...logContext });
     const detail = await this.eventsService.getDetail(eventId, user);
     if (
       !detail.participants.some(
@@ -100,7 +105,7 @@ export class VotesService implements OnModuleInit {
         : {}),
     }));
     try {
-      return await this.connection.transaction(async (session) => {
+      const result = await this.connection.transaction(async (session) => {
         const event = await this.eventModel
           .findOneAndUpdate(
             {
@@ -139,6 +144,8 @@ export class VotesService implements OnModuleInit {
           await this.snapshots.capture(eventId, session);
         return this.response(vote);
       });
+      this.logger.log({ message: 'Vote saved', ...logContext });
+      return result;
     } catch (error: unknown) {
       if (
         typeof error === 'object' &&

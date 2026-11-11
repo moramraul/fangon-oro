@@ -118,6 +118,27 @@ describe('EventsService permissions and state rules', () => {
     ]);
   });
 
+  it('marks only closed events with nonblank justifications as having responses', async () => {
+    const emptyId = new Types.ObjectId();
+    model.find.mockReturnValue({
+      sort: jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue([
+          { ...event, status: EventStatus.CLOSED },
+          { ...event, _id: emptyId, status: EventStatus.CLOSED },
+        ]),
+      }),
+    });
+    votes.distinct.mockReturnValue({
+      exec: jest.fn().mockResolvedValue([eventId]),
+    });
+    const result = await service.listClosed();
+    expect(votes.distinct).toHaveBeenCalledWith('eventId', {
+      eventId: { $in: [eventId, emptyId] },
+      'allocations.justification': { $type: 'string', $regex: /\S/ },
+    });
+    expect(result.map((item) => item.hasResponses)).toEqual([true, false]);
+  });
+
   it('allows another ADMIN to manage the detail without participation', async () => {
     const result = await service.getDetail(eventId.toHexString(), {
       _id: new Types.ObjectId(),

@@ -51,6 +51,7 @@ let countdownTimer: ReturnType<typeof setInterval> | undefined
 const overview = ref<Overview | null>(null)
 const result = ref<{ name: string; image: string | null; standings: Standing[] } | null>(null)
 const eventId = ref('')
+const classificationTab = ref<'general' | 'events'>('general')
 const selectedEdition = ref<string | null>(null)
 const historical = ref(false)
 const activeEdition = computed(() =>
@@ -74,13 +75,15 @@ const standings = computed(() =>
 const events = computed(() =>
   historical.value
     ? []
-    : (overview.value?.events.filter(
-        (event) =>
-          !event.isTest &&
-          (event.status === 'closed' ||
-            (!!event.endDate &&
-              Date.parse(event.endDate) <= Date.parse(overview.value!.serverTime))),
-      ) ?? []),
+    : (overview.value?.events
+        .filter(
+          (event) =>
+            !event.isTest &&
+            (event.status === 'closed' ||
+              (!!event.endDate &&
+                Date.parse(event.endDate) <= Date.parse(overview.value!.serverTime))),
+        )
+        .sort((a, b) => (Date.parse(b.endDate ?? '') || 0) - (Date.parse(a.endDate ?? '') || 0)) ?? []),
 )
 
 async function load() {
@@ -97,6 +100,7 @@ async function load() {
   switching.value = false
   switchError.value = ''
   eventId.value = location.hash.match(/^#\/rankings\/events\/([^/]+)$/)?.[1] ?? ''
+  classificationTab.value = eventId.value ? 'events' : 'general'
   result.value = null
   loading.value = true
   error.value = ''
@@ -164,6 +168,8 @@ async function selectClassification(id: string) {
     return
   }
   if (!auth.token) return
+  eventId.value = id
+  result.value = null
   switching.value = true
   try {
     const response = await request<NonNullable<typeof result.value>>(
@@ -183,6 +189,10 @@ async function selectClassification(id: string) {
     if (currentRequest === requestId) switching.value = false
   }
 }
+function selectTab(tab: 'general' | 'events') {
+  classificationTab.value = tab
+  void selectClassification(tab === 'events' ? (events.value[0]?.id ?? '') : '')
+}
 async function selectHistoricalEdition(id: string) {
   if (!auth.token) return
   const currentRequest = ++requestId
@@ -198,6 +208,7 @@ async function selectHistoricalEdition(id: string) {
     overview.value = data
     selectedEdition.value = id
     eventId.value = ''
+    classificationTab.value = 'general'
     result.value = null
   } catch (cause) {
     if (currentRequest !== requestId) return
@@ -248,7 +259,9 @@ onUnmounted(() => {
 
 <template>
   <section class="rankings overview" aria-labelledby="rankings-title" :aria-busy="loading">
-    <a class="overview-text-button" href="#/overview">← Volver a Home</a>
+    <a class="overview-text-button" :href="privateAccess ? '#/profile' : '#/overview'">
+      {{ privateAccess ? '← Volver a administración' : '← Volver a Home' }}
+    </a>
     <header class="rankings-heading">
       <span class="overview-edition">FANGÓN DE ORO</span>
       <h1 id="rankings-title">Clasificaciones</h1>
@@ -333,24 +346,46 @@ onUnmounted(() => {
           </button>
         </nav>
         <nav v-else-if="unlocked" class="ranking-selector" aria-label="Elegir clasificación">
-          <button type="button" :aria-pressed="!eventId" @click="selectClassification('')">
+          <button
+            type="button"
+            :aria-pressed="classificationTab === 'general'"
+            @click="selectTab('general')"
+          >
             General
           </button>
           <button
-            v-for="event in events"
-            :key="event.id"
             type="button"
-            :aria-pressed="eventId === event.id"
-            @click="selectClassification(event.id)"
+            :aria-pressed="classificationTab === 'events'"
+            @click="selectTab('events')"
           >
-            {{ event.name }}
+            Eventos
           </button>
         </nav>
+        <div
+          v-if="!historical && unlocked && classificationTab === 'events'"
+          class="ranking-event-filter"
+        >
+          <label for="ranking-event">Evento</label>
+          <select
+            id="ranking-event"
+            :value="eventId"
+            :disabled="!events.length"
+            @change="selectClassification(($event.target as HTMLSelectElement).value)"
+          >
+            <option v-if="!events.length" value="">No hay eventos finalizados</option>
+            <option v-for="event in events" :key="event.id" :value="event.id">
+              {{ event.name }}
+            </option>
+          </select>
+        </div>
         <p v-if="overview?.publication.state === 'hidden'" class="overview-message">
           La clasificación general se publicará al cerrar la temporada. Se revelarán cinco puestos
           cada 30 minutos, desde el último hasta los ganadores.
         </p>
-        <p v-if="!eventId && overview?.publication.state === 'admin'" class="overview-message">
+        <p
+          v-if="classificationTab === 'general' && overview?.publication.state === 'admin'"
+          class="overview-message"
+        >
           Vista de administración: clasificación completa, oculta para los participantes durante la
           temporada.
         </p>
@@ -367,7 +402,7 @@ onUnmounted(() => {
         </p>
         <p v-if="switchError" class="overview-error" role="alert">{{ switchError }}</p>
         <div
-          v-if="unlocked"
+          v-if="unlocked && (classificationTab === 'general' || eventId)"
           class="ranking-results"
           :aria-busy="switching"
           :class="{ 'ranking-results--loading': switching }"
